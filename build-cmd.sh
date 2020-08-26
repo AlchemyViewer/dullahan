@@ -190,22 +190,24 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
 		rm -f src/dullahan_version.h
 
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
-		cd "${cef_no_wrapper_dir}"
-        rm -rf "${cef_no_wrapper_build_dir}"
-        mkdir -p "${cef_no_wrapper_build_dir}"
-        cd "${cef_no_wrapper_build_dir}"
-        cmake -G  Ninja ..
-		ninja libcef_dll_wrapper
+		pushd "${cef_no_wrapper_dir}"
+            rm -rf "${cef_no_wrapper_build_dir}"
+            mkdir -p "${cef_no_wrapper_build_dir}"
+            pushd "${cef_no_wrapper_build_dir}"
+                cmake -G  Ninja .. -DCMAKE_BUILD_TYPE="Release"
+		        ninja libcef_dll_wrapper
+            popd
+        popd
 		
-        cd "$stage"
-        cmake .. -G  Ninja -DCEF_WRAPPER_DIR="${cef_no_wrapper_dir}" \
+        pushd "$stage"
+        cmake .. -G  Ninja -DCMAKE_BUILD_TYPE="Release" -DCEF_WRAPPER_DIR="${cef_no_wrapper_dir}" \
             -DCEF_WRAPPER_BUILD_DIR="${cef_no_wrapper_build_dir}" \
-			  -DCMAKE_C_FLAGS:STRING="$LL_BUILD_RELEASE -m${AUTOBUILD_ADDRSIZE}" \
-			  -DCMAKE_CXX_FLAGS:STRING="$LL_BUILD_RELEASE -m${AUTOBUILD_ADDRSIZE}"
+			  -DCMAKE_C_FLAGS:STRING="-m${AUTOBUILD_ADDRSIZE}" \
+			  -DCMAKE_CXX_FLAGS:STRING="-m${AUTOBUILD_ADDRSIZE}"
 
 		ninja
 
-		g++ -std=c++11 	-I "${cef_no_wrapper_dir}/include" 	-I "${dullahan_source_dir}" -o "$stage/version"  "$top/tools/autobuild_version.cpp"
+		g++ -std=c++17 	-I "${cef_no_wrapper_dir}/include" 	-I "${dullahan_source_dir}" -o "$stage/version"  "$top/tools/autobuild_version.cpp"
 
 		"$stage/version" > "$stage/VERSION.txt"
 		rm "$stage/version"
@@ -233,5 +235,6 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
 		cp ${dullahan_source_dir}/dullahan_version.h ${stage}/include/cef/
         cp "$top/CEF_LICENSE.txt" "$stage/LICENSES"
         cp "$top/LICENSE.txt" "$stage/LICENSES"
+        popd
 		;;
 esac
