@@ -107,11 +107,6 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
             command_line->AppendSwitch("disable-gpu-compositing");
         }
 
-        if (mDisableWebSecurity)
-        {
-            command_line->AppendSwitch("disable-web-security");
-        }
-
         if (mDisableNetworkService)
         {
             command_line->AppendSwitchWithValue("disable-features", "NetworkService");
@@ -309,6 +304,7 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     browser_settings.background_color = user_settings.background_color;
     browser_settings.file_access_from_file_urls = user_settings.file_access_from_file_urls ? STATE_ENABLED : STATE_DISABLED;
     browser_settings.image_shrink_standalone_to_fit = user_settings.image_shrink_standalone_to_fit ? STATE_ENABLED : STATE_DISABLED;
+    browser_settings.web_security = user_settings.disable_web_security ? STATE_DISABLED : STATE_ENABLED;
 
     // set up how we handle cookies and persistance
     CefRefPtr<CefCookieManager> manager = CefCookieManager::GetGlobalManager(nullptr);
