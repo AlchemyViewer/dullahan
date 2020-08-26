@@ -153,7 +153,6 @@ class dullahan_impl :
         bool mInitialized;
         int mViewWidth;
         int mViewHeight;
-        bool mSystemFlashEnabled;
         bool mMediaStreamEnabled;
         bool mBeginFrameScheduling;
         bool mForceWaveAudio;

@@ -58,7 +58,6 @@ dullahan_impl::dullahan_impl() :
     mCallbackManager(new dullahan_callback_manager),
     mViewWidth(0),
     mViewHeight(0),
-    mSystemFlashEnabled(false),
     mMediaStreamEnabled(false),
     mBeginFrameScheduling(false),
     mForceWaveAudio(false),
@@ -92,11 +91,6 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
         {
             command_line->AppendSwitch("disable-surfaces");
             command_line->AppendSwitch("enable-media-stream");
-        }
-
-        if (mSystemFlashEnabled == true)
-        {
-            command_line->AppendSwitch("enable-system-flash");
         }
 
         if (mBeginFrameScheduling == true)
@@ -233,9 +227,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
         cef_string_utf8_to_utf16(accept_language_list.c_str(),
                                  accept_language_list.size(), &settings.accept_language_list);
     }
-
-    // enable/disable use of system Flash
-    mSystemFlashEnabled = user_settings.plugins_enabled & user_settings.flash_enabled;
 
     // enable/disable media stream (web cams etc.)
     // IMPORTANT: there is no "Use Your WebCam OK?" dialog so enable this at your peril

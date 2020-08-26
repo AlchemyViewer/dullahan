@@ -131,14 +131,12 @@ void app::init_dullahan()
     settings.disable_network_service = false;
     settings.disable_web_security = false;
     settings.file_access_from_file_urls = false;
-    settings.flash_enabled = false;
     settings.flip_mouse_y = false;
     settings.flip_pixels_y = false;
     settings.force_wave_audio = true;
     settings.frame_rate = 60;
     settings.initial_height = mTextureWidth;
     settings.initial_width = mTextureHeight;
-    settings.java_enabled = false;
     settings.javascript_enabled = true;
     settings.media_stream_enabled = true;
     settings.plugins_enabled = true;
