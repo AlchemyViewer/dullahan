@@ -58,16 +58,18 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>bbadb8dce79fa7a850251ba2d26a3b26</string>
+              <string>4d87384a82fc53aa08de19225b598a10</string>
+              <key>hash_algorithm</key>
+              <string>md5</string>
               <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/ct2/60314/566606/cef_bin-81.3.10_gb223419_chromium-81.0.4044.138-windows64-542664.tar.bz2</string>
+              <string>https://pkg.alchemyviewer.org/repository/autobuild-external/cef-bin/windows64/cef_bin-85.3.9_gb045a6e_chromium-85.0.4183.102-windows64-202600358.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
         <key>version</key>
-        <string>84.4.1_gfdc7504_chromium-84.0.4147.105</string>
+        <string>85.3.9_gb045a6e_chromium-85.0.4183.102</string>
       </map>
     </map>
     <key>package_description</key>
