@@ -36,8 +36,6 @@ int main(int argc, char* argv[])
 #ifdef WIN32
 #include <windows.h>
 
-#define HOST_PROCESS_REAPER
-
 #ifdef HOST_PROCESS_REAPER
 // Ignore c:\program files (x86)\microsoft visual studio 12.0\vc\include\thr\xthread(196): warning C4702: unreachable code
 #pragma warning( disable : 4702)
