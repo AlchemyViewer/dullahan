@@ -1,0 +1,49 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  AUTOBUILD_PACKAGE_DIR: dullahan
+  AUTOBUILD_PACKAGE_NAME: dullahan
+  AUTOBUILD_BUILD_ID: $CI_PIPELINE_ID
+
+# build:windows:
+#   stage: build
+#   tags:
+#     - autobuild
+#     - windows
+#   before_script:
+#     - pipenv install
+#   script:
+#     - pipenv run autobuild install -A32
+#     - pipenv run autobuild build -A32
+#     - pipenv run autobuild package -A32
+#   artifacts:
+#     paths:
+#       - ${env:AUTOBUILD_PACKAGE_NAME}-*windows*.tar.bz2
+      
+build:windows64:
+  stage: build
+  tags:
+    - autobuild
+    - windows
+  before_script:
+    - pipenv install
+  script:
+    - pipenv run autobuild install -A64
+    - pipenv run autobuild build -A64
+    - pipenv run autobuild package -A64
+  artifacts:
+    paths:
+      - ${env:AUTOBUILD_PACKAGE_NAME}-*windows64*.tar.bz2
+
+deploy:nexus:
+  stage: deploy
+  tags:
+    - autobuild
+    - windows
+  script:
+    # - $FileNameWin32 = Get-ChildItem -Path . -Name -Include ${env:AUTOBUILD_PACKAGE_NAME}-*-windows-${env:AUTOBUILD_BUILD_ID}*.tar.bz2
+    # - curl.exe -v --user "${env:AUTOBUILD_HTTP_USER}:${env:AUTOBUILD_HTTP_PASS}" --upload-file .\$FileNameWin32 "https://pkg.alchemyviewer.org/repository/autobuild-external/${env:AUTOBUILD_PACKAGE_DIR}/windows/${FileNameWin32}"
+    - $FileNameWin64 = Get-ChildItem -Path . -Name -Include ${env:AUTOBUILD_PACKAGE_NAME}-*-windows64-${env:AUTOBUILD_BUILD_ID}*.tar.bz2
+    - curl.exe -v --user "${env:AUTOBUILD_HTTP_USER}:${env:AUTOBUILD_HTTP_PASS}" --upload-file .\$FileNameWin64 "https://pkg.alchemyviewer.org/repository/autobuild-external/${env:AUTOBUILD_PACKAGE_DIR}/windows64/${FileNameWin64}"
