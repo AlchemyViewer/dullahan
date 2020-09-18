@@ -147,7 +147,19 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
 
     // point to host application
 #ifdef WIN32
-    CefString(&settings.browser_subprocess_path) = "dullahan_host.exe";
+    std::string subprocess_path;
+    // explicitly set the path to the resources folder since defaults no longer work on some systems
+    if (!user_settings.browser_subprocess_path.empty())
+    {
+        subprocess_path = user_settings.browser_subprocess_path + "\\dullahan_host.exe";
+    }
+    else
+    {
+        CHAR wcwd[MAX_PATH];
+        GetCurrentDirectory(MAX_PATH, wcwd);
+        subprocess_path = std::string(wcwd) + "\\dullahan_host.exe";
+    }
+    cef_string_utf8_to_utf16(subprocess_path.c_str(), subprocess_path.size(), &settings.browser_subprocess_path);
 #elif __APPLE__
     NSString* appBundlePath = [[NSBundle mainBundle] bundlePath];
     CefString(&settings.browser_subprocess_path) =
@@ -189,13 +201,22 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     // turn on only for Windows 7+
     CefEnableHighDPISupport();
 
+    // explicitly set the path to the resources folder since defaults no longer work on some systems
+    if (!user_settings.resources_dir_path.empty())
+    {
+        cef_string_utf8_to_utf16(user_settings.resources_dir_path.c_str(), user_settings.resources_dir_path.size(), &settings.resources_dir_path);
+    }
+
     // explicitly set the path to the locales folder since defaults no longer work on some systems
-    CefString(&settings.locales_dir_path) = user_settings.locales_dir_path;
+    if (!user_settings.locales_dir_path.empty())
+    {
+        cef_string_utf8_to_utf16(user_settings.locales_dir_path.c_str(), user_settings.locales_dir_path.size(), &settings.locales_dir_path);
+    }
 
     // set path to cache if enabled and set
     if (user_settings.cache_enabled && user_settings.cache_path.length())
     {
-        CefString(&settings.cache_path) = user_settings.cache_path;
+        cef_string_utf8_to_utf16(user_settings.cache_path.c_str(), user_settings.cache_path.size(), &settings.cache_path);
     }
 
     // insert a new string into user agent

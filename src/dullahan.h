@@ -161,6 +161,12 @@ class dullahan
             bool plugins_enabled = true;                // all plugins
             bool webgl_enabled = true;                  // webgl
 
+            // explicitly set the path to the helper executable as CEF 85+ require this
+            std::string browser_subprocess_path = "";
+
+            // explicitly set the path to the resources folder since defaults no longer work on some systems
+            std::string resources_dir_path = "";
+
             // explicitly set the path to the locales folder since defaults no longer work on some systems
             std::string locales_dir_path = "";
 
