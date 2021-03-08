@@ -32,11 +32,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>aa9bc490fff786db6808d2356724cb0ba961668335fd071474d930ff5742f687ce0a7a9f63ca052fb8ccde99c60b5a2a</string>
+              <string>84cd36d06643e3a3b1da9b25412fc1709fd0d78dc3b6e46f640904002f17026f9b3ca5dfdb9d269b041510ac08d3f7c2</string>
               <key>hash_algorithm</key>
               <string>sha3_384</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/88.2.6/cef_bin-88.2.5_gcab058b_chromium-88.0.4324.150-linux64-210422027.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/89.0.6/cef_bin-89.0.6_g6f30454_chromium-89.0.4389.72-linux64-210651520.tar.xz</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -58,18 +58,18 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>e8f8ee381e18a969041dff29e92dbdba37d9bfa530121fecd83011bd007f890a0c2cf33ad38a3dc8250574a77bf73dbf</string>
+              <string>6f40f90ae72a1f5f8005b46cebb371e46d0e7d2fb840b7fd5a4d7d6bad45e529db26e5a59d02e17e517bbe32622f3474</string>
               <key>hash_algorithm</key>
               <string>sha3_384</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/88.2.6/cef_bin-88.2.6_gd717f0e_chromium-88.0.4324.150-windows64-210430434.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/89.0.6/cef_bin-89.0.6_g6f30454_chromium-89.0.4389.72-windows64-4389.tar.xz</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
         <key>version</key>
-        <string>88.2.5_gcab058b_chromium-88.0.4324.150</string>
+        <string>89.0.6_g6f30454_chromium-89.0.4389.72</string>
       </map>
     </map>
     <key>package_description</key>
