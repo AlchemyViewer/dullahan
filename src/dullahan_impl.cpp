@@ -63,7 +63,6 @@ dullahan_impl::dullahan_impl() :
     mForceWaveAudio(false),
     mDisableGPU(true),
     mDisableWebSecurity(false),
-    mDisableNetworkService(false),
     mUseMockKeyChain(false),
     mAutoPlayWithoutGesture(false),
     mFlipPixelsY(false),
@@ -85,11 +84,10 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
 {
     if (process_type.empty())
     {
-        // <ND> Enable HTMLImports to get youtube live chat to work
         command_line->AppendSwitchWithValue("enable-blink-features", "HTMLImports");
+
         if (mMediaStreamEnabled == true)
         {
-            command_line->AppendSwitch("disable-surfaces");
             command_line->AppendSwitch("enable-media-stream");
         }
 
@@ -98,18 +96,15 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
             command_line->AppendSwitch("enable-begin-frame-scheduling");
         }
 
-        // <ND> n.b. be careful enabling this. At least on Linux it will break sites like twitch.tv mixer.com, dlive.com.
-        // Probably this also makes only sense for Win32?
-
         if (mDisableGPU == true)
         {
             command_line->AppendSwitch("disable-gpu");
             command_line->AppendSwitch("disable-gpu-compositing");
         }
 
-        if (mDisableNetworkService)
+        if (mDisableWebSecurity)
         {
-            command_line->AppendSwitchWithValue("disable-features", "NetworkService");
+            command_line->AppendSwitch("disable-web-security");
         }
 
         if (mUseMockKeyChain)
@@ -267,12 +262,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     // in the viewer to open a web page that references locally generated images without
     // needing a web server.
     mDisableWebSecurity = user_settings.disable_web_security;
-
-    // this flag if set, adds a command line parameter that disables "network service" and
-    // is like adding --disable-features=NetworkService. This appears to be required after
-    // Chrome 75 to disable the "Chrome wants access to passwords" dialog on macOS that
-    // started to appear. May change later.
-    mDisableNetworkService = user_settings.disable_network_service;
 
     // this flag if set, adds a command line parameter that replaces disable_network_service
     // flag to bypass the dialog on macOS that appears in Chrome 79+ to disable the
