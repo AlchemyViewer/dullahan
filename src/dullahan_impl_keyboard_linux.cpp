@@ -460,7 +460,7 @@ KeyCodes getSpecialKeyCodes(int code, Modifiers &modifiers)
     return {key_code, char_code};
 }
 
-void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input)
+void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, uint32_t uni_char, bool keypad_input)
 {
     Modifiers modifiers(key_modifiers);
     KeyCodes keyCodes(0, -1);
@@ -507,14 +507,9 @@ void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint3
     
     default:
         cef_key_event.type = KEYEVENT_CHAR;
+        cef_key_event.character = uni_char;
         break;
     }
 
     mBrowser->GetHost()->SendKeyEvent(cef_key_event);
-
-    if (keyCodes.char_code >= 0 && key_event == dullahan::KE_KEY_DOWN)
-    {
-        cef_key_event.type = KEYEVENT_CHAR;
-        mBrowser->GetHost()->SendKeyEvent(cef_key_event);
-    }
 }
