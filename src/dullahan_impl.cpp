@@ -228,12 +228,12 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     if (user_settings.user_agent_substring.length())
     {
         std::string user_agent(user_settings.user_agent_substring);
-        cef_string_utf8_to_utf16(user_agent.c_str(), user_agent.size(), &settings.product_version);
+        cef_string_utf8_to_utf16(user_agent.c_str(), user_agent.size(), &settings.user_agent_product);
     }
     else
     {
         std::string user_agent = makeCompatibleUserAgentString("");
-        cef_string_utf8_to_utf16(user_agent.c_str(), user_agent.size(), &settings.product_version);
+        cef_string_utf8_to_utf16(user_agent.c_str(), user_agent.size(), &settings.user_agent_product);
     }
 
     // commenting out but leaving this here for future reference - shows how you can explicitly set
@@ -249,6 +249,13 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
                                  accept_language_list.size(), &settings.accept_language_list);
     }
 
+    if (!user_settings.cookies_enabled)
+    {
+        // this appears to be the way to fully disable cookies - empty list of schemes to accept and no defaults
+        CefString(&settings.cookieable_schemes_list) = "";
+        settings.cookieable_schemes_exclude_defaults = true;
+    }
+    
     // enable/disable media stream (web cams etc.)
     // IMPORTANT: there is no "Use Your WebCam OK?" dialog so enable this at your peril
     mMediaStreamEnabled = user_settings.media_stream_enabled;
@@ -324,7 +331,6 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     browser_settings.background_color = user_settings.background_color;
     browser_settings.file_access_from_file_urls = user_settings.file_access_from_file_urls ? STATE_ENABLED : STATE_DISABLED;
     browser_settings.image_shrink_standalone_to_fit = user_settings.image_shrink_standalone_to_fit ? STATE_ENABLED : STATE_DISABLED;
-    browser_settings.web_security = user_settings.disable_web_security ? STATE_DISABLED : STATE_ENABLED;
 
     mRenderHandler = new dullahan_render_handler(this);
     mBrowserClient = new dullahan_browser_client(this, mRenderHandler);
@@ -346,27 +352,6 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
         // Default context
         // Since this reuses existing context when possible, all instances of browser will share cookies and sessions.
         mRequestContext = nullptr;
-    }
-
-    CefRefPtr<CefCookieManager> manager;
-    if (mRequestContext)
-    {
-        manager = mRequestContext->GetCookieManager(nullptr);
-    }
-    else
-    {
-        // set up how we handle cookies and persistance for global context
-        // (we probably shouldn't do this globally and use some context instead)
-        manager = CefCookieManager::GetGlobalManager(nullptr);
-    }
-
-    if (manager && user_settings.cookies_enabled == false)
-    {
-        // this appears to be the way to fully disable cookies - empty list of schemes to accept and no defaults
-        const std::vector<CefString> empty_list;
-        const bool include_defaults = false;
-        CefRefPtr<CefCompletionCallback> callback = nullptr;
-        manager->SetSupportedSchemes(empty_list, include_defaults, callback);
     }
 
     // off with it's head

@@ -20,9 +20,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>5848b70f8960e1b7f5594cc01aede8cc</string>
+              <string>24e1b646fdea8375428d7fd0ad00370d3d1e8f9f577af548f017835c57dbff3744ed299326a610e21a123ad865931bb8</string>
+              <key>hash_algorithm</key>
+              <string>sha3_384</string>
               <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/ct2/60315/567240/cef_bin-81.3.10_gb223419_chromium-81.0.4044.138-darwin64-542664.tar.bz2</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.5/cef_bin-90.6.5_g7a604aa_chromium-90.0.4430.93-darwin64-4430.tar.xz</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -32,11 +34,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>84cd36d06643e3a3b1da9b25412fc1709fd0d78dc3b6e46f640904002f17026f9b3ca5dfdb9d269b041510ac08d3f7c2</string>
+              <string>bb961b546e2939cd33ed229d791dd6de7e903c19797dccf4ab9e45e77e2419db119c49572961c7ef41c0b906b9731ac8</string>
               <key>hash_algorithm</key>
               <string>sha3_384</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/89.0.6/cef_bin-89.0.6_g6f30454_chromium-89.0.4389.72-linux64-210651520.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.5/cef_bin-90.6.5_g7a604aa_chromium-90.0.4430.93-linux64-4430.tar.xz</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -58,18 +60,18 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>6f40f90ae72a1f5f8005b46cebb371e46d0e7d2fb840b7fd5a4d7d6bad45e529db26e5a59d02e17e517bbe32622f3474</string>
+              <string>f0b5943c22f4e3b37a2a68eecdc3db6fb1253fd6f0cc387e08f17cdef96a649f4de28a46bf6a1044628a1c18353a8fc6</string>
               <key>hash_algorithm</key>
               <string>sha3_384</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/89.0.6/cef_bin-89.0.6_g6f30454_chromium-89.0.4389.72-windows64-4389.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.5/cef_bin-90.6.5_g7a604aa_chromium-90.0.4430.93-windows64-4430.tar.xz</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
         <key>version</key>
-        <string>89.0.6_g6f30454_chromium-89.0.4389.72</string>
+        <string>90.6.5_g7a604aa_chromium-90.0.4430.93</string>
       </map>
     </map>
     <key>package_description</key>
