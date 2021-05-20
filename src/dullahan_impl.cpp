@@ -301,8 +301,11 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     CefString(&settings.log_file) = user_settings.log_file;
     settings.log_severity = user_settings.log_verbose ? LOGSEVERITY_VERBOSE : LOGSEVERITY_DEFAULT;
 
-    // allow Chrome (or other CEF windoW) to debug at http://localhost::PORT_NUMBER
-    settings.remote_debugging_port = user_settings.remote_debugging_port;
+	if (user_settings.enable_remote_debug)
+	{
+		// allow Chrome (or other CEF windoW) to debug at http://localhost::PORT_NUMBER
+		settings.remote_debugging_port = user_settings.remote_debugging_port;
+	}
 
     // initiaize CEF
     return CefInitialize(args, settings, this, nullptr);
