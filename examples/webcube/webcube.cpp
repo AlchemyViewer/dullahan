@@ -144,6 +144,7 @@ void app::init_dullahan()
     settings.webgl_enabled = true;
     settings.log_file = "webcube_cef_log.txt";
     settings.log_verbose = true;
+    settings.autoplay_without_gesture = true;
 
     bool result = mDullahan->init(settings);
     if (result)
