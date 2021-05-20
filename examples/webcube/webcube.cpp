@@ -390,6 +390,40 @@ void app::update()
 
 /////////////////////////////////////////////////////////////////////////////////
 //
+void app::editAction(EEditActions edit_action)
+{
+    switch (edit_action)
+    {
+    case EDIT_UNDO:
+        mDullahan->editUndo();
+        break;
+    case EDIT_REDO:
+        mDullahan->editRedo();
+        break;
+    case EDIT_CUT:
+        mDullahan->editCut();
+        break;
+    case EDIT_COPY:
+        mDullahan->editCopy();
+        break;
+    case EDIT_PASTE:
+        mDullahan->editPaste();
+        break;
+    case EDIT_DELETE:
+        mDullahan->editDelete();
+        break;
+    case EDIT_SELECT_ALL:
+        mDullahan->editSelectAll();
+        break;
+    case EDIT_VIEW_SOURCE:
+        mDullahan->viewSource();
+        break;
+    }
+
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+//
 void app::navigate(const std::string url)
 {
     mDullahan->navigate(url);
@@ -983,6 +1017,38 @@ LRESULT CALLBACK window_proc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 case ID_FEATURES_COOKIES_DELETE_ALL_COOKIES:
                     gApp->deleteAllCookies();
+                    break;
+
+                case ID_FEATURES_SHOWSOURCE:
+                    gApp->editAction(app::EDIT_VIEW_SOURCE);
+                    break;
+
+                case ID_EDIT_UNDO:
+                    gApp->editAction(app::EDIT_UNDO);
+                    break;
+
+                case ID_EDIT_REDO:
+                    gApp->editAction(app::EDIT_REDO);
+                    break;
+
+                case ID_EDIT_CUT:
+                    gApp->editAction(app::EDIT_CUT);
+                    break;
+
+                case ID_EDIT_COPY:
+                    gApp->editAction(app::EDIT_COPY);
+                    break;
+
+                case ID_EDIT_PASTE:
+                    gApp->editAction(app::EDIT_PASTE);
+                    break;
+
+                case ID_EDIT_DELETE:
+                    gApp->editAction(app::EDIT_DELETE);
+                    break;
+
+                case ID_EDIT_SELECTALL:
+                    gApp->editAction(app::EDIT_SELECT_ALL);
                     break;
 
                 default:

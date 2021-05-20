@@ -41,6 +41,18 @@
 class app
 {
     public:
+        enum EEditActions
+        {
+            EDIT_UNDO,
+            EDIT_REDO,
+            EDIT_CUT,
+            EDIT_COPY,
+            EDIT_PASTE,
+            EDIT_DELETE,
+            EDIT_SELECT_ALL,
+            EDIT_VIEW_SOURCE
+        };
+
         app();
 
         void init();
@@ -50,6 +62,7 @@ class app
         void draw(bool pick_only);
         void windowPosToTexturePos(int mx, int my, int& tx, int& ty, int& tf);
         void update();
+        void editAction(EEditActions edit_action);
         void navigate(const std::string url);
         void navigateHome();
         void showDevTools();
