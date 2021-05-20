@@ -351,7 +351,7 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     {
         // Default context
         // Since this reuses existing context when possible, all instances of browser will share cookies and sessions.
-        mRequestContext = nullptr;
+        mRequestContext = CefRequestContext::GetGlobalContext();
     }
 
     // off with it's head
