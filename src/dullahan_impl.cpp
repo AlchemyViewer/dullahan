@@ -120,6 +120,33 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
         {
             command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
         }
+        if (mProxyEnabled)
+        {
+            std::string proxy_type;
+            switch (mProxyType)
+            {
+            default:
+            case dullahan::PRX_HTTP:
+                break;
+            case dullahan::PRX_SOCKS4:
+                proxy_type = "socks4://";
+                break;
+            case dullahan::PRX_SOCKS5:
+                proxy_type = "socks5://";
+                break;
+            }
+            
+            char buffer[4096];
+            int writtern = snprintf(buffer, 4096, "%s%s:%d", proxy_type.c_str(), mProxyHost.c_str(), mProxyPort);
+            std::string proxy_url(buffer, writtern);
+
+            CefString cef_proxy_str(proxy_url);
+            command_line->AppendSwitchWithValue("proxy-server", cef_proxy_str);
+        }
+        else
+        {
+            command_line->AppendSwitch("proxy-auto-detect");
+        }
 
 		platformAddCommandLines( command_line );		
     }
@@ -296,6 +323,15 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     // if true, this setting inverts the injected mouse coordinates in Y direction
     // useful for matching the setting for flipPixelsY
     mFlipMouseY = user_settings.flip_mouse_y;
+
+    // proxy settings
+    mProxyEnabled = user_settings.proxy_enabled;
+    if (mProxyEnabled) 
+    {
+        mProxyType = user_settings.proxy_type;
+        mProxyHost = user_settings.proxy_host;
+        mProxyPort = user_settings.proxy_port;
+    }
 
     // log file settings
     CefString(&settings.log_file) = user_settings.log_file;

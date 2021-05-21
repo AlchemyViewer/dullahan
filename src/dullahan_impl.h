@@ -177,6 +177,11 @@ class dullahan_impl :
         const int mViewDepth = 4;
         std::vector<std::string> mCustomSchemes;
 
+        bool mProxyEnabled = false;
+        int mProxyType = dullahan::PRX_NONE;
+        std::string mProxyHost;
+        int mProxyPort = -1;
+
         IMPLEMENT_REFCOUNTING(dullahan_impl);
 };
 

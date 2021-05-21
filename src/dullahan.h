@@ -129,6 +129,14 @@ class dullahan
             FD_SAVE_FILE,
         } EFileDialogType;
 
+        typedef enum e_proxy_type
+        {
+            PRX_NONE = 0,
+            PRX_HTTP,
+            PRX_SOCKS4,
+            PRX_SOCKS5
+        } EProxyType;
+
     public:
         //////////// initialization settings ////////////
         struct dullahan_settings
@@ -210,6 +218,12 @@ class dullahan
 
             // allow Chrome (or other CEF windoW) to debug via http://localhost::PORT_NUMBER
             int remote_debugging_port = 1964;
+
+            // Proxy Config
+            bool proxy_enabled = false;
+            int proxy_type = PRX_HTTP;
+            std::string proxy_host = "";
+            int proxy_port = 3128;
         };
 
     public:
@@ -352,7 +366,7 @@ class dullahan
 
         // HTTP auth request triggered
         void setOnHTTPAuthCallback(std::function<bool(const std::string host,
-                                   const std::string realm,
+                                   const std::string realm, bool isproxy,
                                    std::string& username, std::string& password)> callback);
 
         // page finishes loading

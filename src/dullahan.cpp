@@ -366,7 +366,7 @@ void dullahan::setOnCustomSchemeURLCallback(std::function<void(const std::string
 }
 
 void dullahan::setOnHTTPAuthCallback(std::function<bool(const std::string host,
-                                     const std::string realm,
+                                     const std::string realm, bool isproxy,
                                      std::string& username, std::string& password)> callback)
 {
     mImpl->getCallbackManager()->setOnHTTPAuthCallback(callback);

@@ -104,7 +104,7 @@ void app::init_dullahan()
     mDullahan->setOnCustomSchemeURLCallback(std::bind(&app::onCustomSchemeURL, this, std::placeholders::_1));
     mDullahan->setOnFileDialogCallback(std::bind(&app::onFileDialog, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
     mDullahan->setOnFileDownloadProgressCallback(std::bind(&app::onFileDownloadProgress, this, std::placeholders::_1, std::placeholders::_2));
-    mDullahan->setOnHTTPAuthCallback(std::bind(&app::onHTTPAuth, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+    mDullahan->setOnHTTPAuthCallback(std::bind(&app::onHTTPAuth, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
     mDullahan->setOnLoadEndCallback(std::bind(&app::onLoadEnd, this, std::placeholders::_1, std::placeholders::_2));
     mDullahan->setOnLoadErrorCallback(std::bind(&app::onLoadError, this, std::placeholders::_1, std::placeholders::_2));
     mDullahan->setOnLoadStartCallback(std::bind(&app::onLoadStart, this));
@@ -726,7 +726,7 @@ void app::onFileDownloadProgress(int percent, bool complete)
 
 /////////////////////////////////////////////////////////////////////////////////
 //
-bool app::onHTTPAuth(const std::string host, const std::string realm, std::string& username, std::string& password)
+bool app::onHTTPAuth(const std::string host, const std::string realm, bool isproxy, std::string& username, std::string& password)
 {
     std::cout << "onHTTPAuth: " << host << " " << realm << std::endl;
     username = "user";

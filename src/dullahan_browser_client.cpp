@@ -308,11 +308,11 @@ bool dullahan_browser_client::GetAuthCredentials(CefRefPtr<CefBrowser> browser, 
 
     std::string username = "";
     std::string password = "";
-    bool proceed = mParent->getCallbackManager()->onHTTPAuth(host_str, realm_str, username, password);
+    bool proceed = mParent->getCallbackManager()->onHTTPAuth(host_str, realm_str, isProxy, username, password);
 
     if (proceed)
     {
-        callback->Continue(username.c_str(), password.c_str());
+        callback->Continue(CefString(username), CefString(password));
         return true; // continue with request
     }
     else
