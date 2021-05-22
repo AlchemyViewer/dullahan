@@ -166,7 +166,7 @@ static void onRequestExitCallback() {
 - (void)sendKeyEvent:(NSEvent*)theEvent
 {
         dullahan::EKeyEvent event_type;
-        if ([theEvent type] == NSKeyDown)
+    if ([theEvent type] == NSEventTypeKeyDown)
             event_type = dullahan::KE_KEY_DOWN;
         else
             event_type = dullahan::KE_KEY_UP;
