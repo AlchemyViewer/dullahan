@@ -113,6 +113,8 @@ static void onRequestExitCallback() {
     settings.user_agent_substring = "osxgl";
     settings.accept_language_list = "en-us";
     settings.autoplay_without_gesture = true;
+    settings.log_verbose = true;
+    settings.log_file = "/tmp/osxglcef.log";
 
     bool result = _mDullahan->init(settings);
     if (result) {
