@@ -191,6 +191,10 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     CefString(&settings.browser_subprocess_path) =
         [[NSString stringWithFormat:
           @"%@/Contents/Frameworks/DullahanHelper.app/Contents/MacOS/DullahanHelper", appBundlePath] UTF8String];
+
+    CefString(&settings.framework_dir_path) =
+    [[NSString stringWithFormat:
+      @"%@/Contents/Frameworks/Chromium Embedded Framework.framework", appBundlePath] UTF8String];
 #endif
 #ifdef __linux__
     CefString(&settings.browser_subprocess_path) = getExeCwd() + "/dullahan_host";
