@@ -11,6 +11,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Dullahan main project/solution
 project(dullahan)
 
+option(USE_SANDBOX "Enable Sandbox Support" OFF)
+
 ###############################################################################
 #  Determine platform
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -150,6 +152,23 @@ elseif(IS_MACOS)
         optimized ${CEF_FRAMEWORK_RELEASE}
     )
 
+    find_library(
+        CEF_SANDBOX_DEBUG
+        NAMES cef_sandbox.a
+        PATHS ${CEF_DEBUG_BIN_DIR}
+    )
+
+    find_library(
+        CEF_SANDBOX_RELEASE
+        NAMES cef_sandbox.a
+        PATHS ${CEF_RELEASE_BIN_DIR}
+    )
+
+    set(CEF_SANDBOX
+        debug ${CEF_SANDBOX_DEBUG}
+        optimized ${CEF_SANDBOX_RELEASE}
+    )
+
     find_library(OPENGL_FRAMEWORK OpenGL)
     find_library(COCOA_FRAMEWORK Cocoa)
 
@@ -159,6 +178,9 @@ elseif(IS_MACOS)
     check_exists(CEF_FRAMEWORK_DEBUG)
     check_exists(CEF_FRAMEWORK_RELEASE)
     check_exists(CEF_FRAMEWORK)
+    check_exists(CEF_SANDBOX_DEBUG)
+    check_exists(CEF_SANDBOX_RELEASE)
+    check_exists(CEF_SANDBOX)
     check_exists(OPENGL_FRAMEWORK)
     check_exists(COCOA_FRAMEWORK)
 elseif(IS_LINUX)
@@ -258,6 +280,10 @@ if(IS_WINDOWS)
     set_target_properties(dullahan PROPERTIES LINK_FLAGS "/ignore:4099")
 endif()
 
+if(USE_SANDBOX)
+    target_compile_definitions(dullahan PUBLIC USE_SANDBOX=1)
+endif()
+
 ###############################################################################
 # Parse CEF version header and process into the Dullahan header file.
 # Only do this if the version input template changed to try to keep
@@ -347,7 +373,8 @@ elseif(IS_MACOS)
         )
 
         if(USE_SANDBOX)
-            target_link_libraries(${_helper_target} cef_sandbox_lib)
+            target_compile_definitions(${_helper_target} PUBLIC USE_SANDBOX=1)
+            target_link_libraries(${_helper_target} ${CEF_SANDBOX})
         endif()
     endforeach()
 elseif(IS_LINUX)

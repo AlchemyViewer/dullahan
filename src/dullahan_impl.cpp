@@ -198,7 +198,10 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     [[NSString stringWithFormat:
       @"%@/Contents/Frameworks/Chromium Embedded Framework.framework", appBundlePath] UTF8String];
     
-    settings.no_sandbox = true;
+    #if !defined(USE_SANDBOX)
+        settings.no_sandbox = true;
+    #endif
+
 #elif __linux__
     CefString(&settings.browser_subprocess_path) = getExeCwd() + "/dullahan_host";
     bool useSandbox = false;
