@@ -20,11 +20,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>24e1b646fdea8375428d7fd0ad00370d3d1e8f9f577af548f017835c57dbff3744ed299326a610e21a123ad865931bb8</string>
+              <string>8475676dcc90a1c14f9c253edf063ec42b90bdd25bd29175f60215ecdf1b3ebefa4f2e42ce3037a4a42e997cd2e0295d</string>
               <key>hash_algorithm</key>
               <string>sha3_384</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.5/cef_bin-90.6.5_g7a604aa_chromium-90.0.4430.93-darwin64-4430.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.6/cef_bin-90.6.6_g3c44b04_chromium-90.0.4430.93-darwin64-4430.tar.xz</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -60,18 +60,18 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>f0b5943c22f4e3b37a2a68eecdc3db6fb1253fd6f0cc387e08f17cdef96a649f4de28a46bf6a1044628a1c18353a8fc6</string>
+              <string>ad90c880b13e6e7af19d3810713f2ac0781c814efd3d2ab1d56f0425998f9eb712b5437d1ae484ec76bdc684a7663589</string>
               <key>hash_algorithm</key>
               <string>sha3_384</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.5/cef_bin-90.6.5_g7a604aa_chromium-90.0.4430.93-windows64-4430.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.6/cef_bin-90.6.6_g3c44b04_chromium-90.0.4430.93-windows64-4430.tar.xz</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
         <key>version</key>
-        <string>90.6.5_g7a604aa_chromium-90.0.4430.93</string>
+        <string>90.6.6_g3c44b04_chromium-90.0.4430.93</string>
       </map>
     </map>
     <key>package_description</key>
