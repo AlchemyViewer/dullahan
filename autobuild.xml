@@ -139,6 +139,9 @@
           </map>
           <key>manifest</key>
           <array>
+            <string>bin/debug/*</string>
+            <string>lib/debug/*</string>
+            <string>bin/release/*</string>
             <string>lib/release/*</string>
           </array>
           <key>name</key>

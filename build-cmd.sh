@@ -135,43 +135,82 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
         rm "$stage"/version.{obj,exe}
     ;;
     darwin*)
+        # Setup osx sdk platform
+        SDKNAME="macosx"
+        export SDKROOT=$(xcodebuild -version -sdk ${SDKNAME} Path)
+        export MACOSX_DEPLOYMENT_TARGET=10.11
+
+        # Setup build flags
+        ARCH_FLAGS="-arch x86_64"
+        SDK_FLAGS="-mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} -isysroot ${SDKROOT}"
+        DEBUG_COMMON_FLAGS="$ARCH_FLAGS $SDK_FLAGS -O0 -g -msse4.2 -fPIC -DPIC"
+        RELEASE_COMMON_FLAGS="$ARCH_FLAGS $SDK_FLAGS -O3 -g -msse4.2 -fPIC -DPIC -fstack-protector-strong"
+        DEBUG_CFLAGS="$DEBUG_COMMON_FLAGS"
+        RELEASE_CFLAGS="$RELEASE_COMMON_FLAGS"
+        DEBUG_CXXFLAGS="$DEBUG_COMMON_FLAGS -std=c++17"
+        RELEASE_CXXFLAGS="$RELEASE_COMMON_FLAGS -std=c++17"
+        DEBUG_CPPFLAGS="-DPIC"
+        RELEASE_CPPFLAGS="-DPIC"
+        DEBUG_LDFLAGS="$ARCH_FLAGS $SDK_FLAGS -Wl,-headerpad_max_install_names"
+        RELEASE_LDFLAGS="$ARCH_FLAGS $SDK_FLAGS -Wl,-headerpad_max_install_names"
+
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
-        cd "$cef_no_wrapper_dir"
-        rm -rf "$cef_no_wrapper_build_dir"
-        mkdir -p "$cef_no_wrapper_build_dir"
-        cd "$cef_no_wrapper_build_dir"
-        cmake -G Xcode -DPROJECT_ARCH="x86_64" ..
-        xcodebuild -project cef.xcodeproj -target libcef_dll_wrapper -configuration Debug
-        xcodebuild -project cef.xcodeproj -target libcef_dll_wrapper -configuration Release
+        # cd "$cef_no_wrapper_dir"
+        # rm -rf "$cef_no_wrapper_build_dir"
+        # mkdir -p "$cef_no_wrapper_build_dir"
+        # cd "$cef_no_wrapper_build_dir"
+        # cmake .. -G Xcode -DPROJECT_ARCH="x86_64" \
+        #     -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+        #     -DCMAKE_OSX_SYSROOT=${SDKROOT} \
+
+        # cmake --build . --config Debug --target libcef_dll_wrapper
+        # cmake --build . --config Release --target libcef_dll_wrapper
 
         # build Dullahan
         cd  "$stage"
-        cmake -G Xcode \
+        cmake .. -G Xcode \
             -DCMAKE_OSX_ARCHITECTURES="$AUTOBUILD_CONFIGURE_ARCH" \
             -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir" \
             -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_build_dir" \
-            -DCMAKE_C_FLAGS:STRING="$LL_BUILD_RELEASE" \
-            -DCMAKE_CXX_FLAGS:STRING="$LL_BUILD_RELEASE" \
-            ..
-        xcodebuild -project dullahan.xcodeproj -target dullahan -configuration Release
-        xcodebuild -project dullahan.xcodeproj -target DullahanHelper -configuration Release
+            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
+            -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
+            -DCMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL="3" \
+            -DCMAKE_XCODE_ATTRIBUTE_GCC_FAST_MATH=NO \
+            -DCMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS=YES \
+            -DCMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
+            -DCMAKE_XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING=YES \
+            -DCMAKE_XCODE_ATTRIBUTE_CLANG_X86_VECTOR_INSTRUCTIONS=sse4.2 \
+            -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD="c++17" \
+            -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY="libc++" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
+            -DCMAKE_OSX_ARCHITECTURES:STRING=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+            -DCMAKE_OSX_SYSROOT=${SDKROOT} \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_MACOSX_RPATH=YES \
+            -DCMAKE_INSTALL_PREFIX=$stage
+
+        cmake --build . --config Debug
+        cmake --build . --config Release
 
         # copy files to staging ready to be packaged
         mkdir -p "$stage/include/cef"
+        mkdir -p "$stage/bin/debug"
+        mkdir -p "$stage/lib/debug"
+        mkdir -p "$stage/bin/release"
         mkdir -p "$stage/lib/release"
         mkdir -p "$stage/LICENSES"
         cp "$stage/Release/libdullahan.a" "$stage/lib/release/"
         cp "$dullahan_source_dir/dullahan.h" "$stage/include/cef/"
         cp "$dullahan_source_dir/dullahan_version.h" "$stage/include/cef/"
-        cp -R "$stage/Release/DullahanHelper.app" "$stage/lib/release"
-        cp -R "$stage/Release/DullahanHelper.app" "$stage/lib/release/DullahanHelper (GPU).app"
-        mv "$stage/lib/release/DullahanHelper (GPU).app/Contents/MacOS/DullahanHelper" "$stage/lib/release/DullahanHelper (GPU).app/Contents/MacOS/DullahanHelper (GPU)"
-        cp -R "$stage/Release/DullahanHelper.app" "$stage/lib/release/DullahanHelper (Renderer).app"
-        mv "$stage/lib/release/DullahanHelper (Renderer).app/Contents/MacOS/DullahanHelper" "$stage/lib/release/DullahanHelper (Renderer).app/Contents/MacOS/DullahanHelper (Renderer)"
-        cp -R "$stage/Release/DullahanHelper.app" "$stage/lib/release/DullahanHelper (Plugin).app"
-        mv "$stage/lib/release/DullahanHelper (Plugin).app/Contents/MacOS/DullahanHelper" "$stage/lib/release/DullahanHelper (Plugin).app/Contents/MacOS/DullahanHelper (Plugin)"
+
+        cp -R $stage/Debug/DullahanHost*.app "$stage/bin/debug"
+        cp "$cef_no_wrapper_build_dir/libcef_dll_wrapper/Debug/libcef_dll_wrapper.a" "$stage/lib/debug"
+        cp -R "$cef_no_wrapper_dir/Debug/Chromium Embedded Framework.framework" "$stage/bin/debug"
+
+        cp -R $stage/Release/DullahanHost*.app "$stage/bin/release"
         cp "$cef_no_wrapper_build_dir/libcef_dll_wrapper/Release/libcef_dll_wrapper.a" "$stage/lib/release"
-        cp -R "$cef_no_wrapper_dir/Release/Chromium Embedded Framework.framework" "$stage/lib/release"
+        cp -R "$cef_no_wrapper_dir/Release/Chromium Embedded Framework.framework" "$stage/bin/release"
         cp "$top/CEF_LICENSE.txt" "$stage/LICENSES"
         cp "$top/LICENSE.txt" "$stage/LICENSES"
 
