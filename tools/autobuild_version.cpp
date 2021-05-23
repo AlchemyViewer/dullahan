@@ -25,8 +25,6 @@ int main(int argc, char* argv[])
     std::cout << DULLAHAN_VERSION_MINOR;
     std::cout << ".";
     std::cout << DULLAHAN_VERSION_POINT;
-    std::cout << ".";
-    std::cout << DULLAHAN_VERSION_BUILD;
     std::cout << "_";
 
     std::string cef_version = std::string(CEF_VERSION);
