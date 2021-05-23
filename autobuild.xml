@@ -34,11 +34,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>bb961b546e2939cd33ed229d791dd6de7e903c19797dccf4ab9e45e77e2419db119c49572961c7ef41c0b906b9731ac8</string>
+              <string>e12d0e66c2aa4f2c7047bcdb1751dbd85b977cfe45ec6c193d3e137384d9e5804c462de2274ac82bd4a7737c9838fd84</string>
               <key>hash_algorithm</key>
               <string>sha3_384</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.5/cef_bin-90.6.5_g7a604aa_chromium-90.0.4430.93-linux64-4430.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/90.6.6/cef_bin-90.6.6_g3c44b04_chromium-90.0.4430.93-linux64-4430.tar.xz</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
