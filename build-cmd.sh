@@ -155,16 +155,16 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
         RELEASE_LDFLAGS="$ARCH_FLAGS $SDK_FLAGS -Wl,-headerpad_max_install_names"
 
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
-        # cd "$cef_no_wrapper_dir"
-        # rm -rf "$cef_no_wrapper_build_dir"
-        # mkdir -p "$cef_no_wrapper_build_dir"
-        # cd "$cef_no_wrapper_build_dir"
-        # cmake .. -G Xcode -DPROJECT_ARCH="x86_64" \
-        #     -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
-        #     -DCMAKE_OSX_SYSROOT=${SDKROOT} \
+        cd "$cef_no_wrapper_dir"
+        rm -rf "$cef_no_wrapper_build_dir"
+        mkdir -p "$cef_no_wrapper_build_dir"
+        cd "$cef_no_wrapper_build_dir"
+        cmake .. -G Xcode -DPROJECT_ARCH="x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+            -DCMAKE_OSX_SYSROOT=${SDKROOT} \
 
-        # cmake --build . --config Debug --target libcef_dll_wrapper
-        # cmake --build . --config Release --target libcef_dll_wrapper
+        cmake --build . --config Debug --target libcef_dll_wrapper
+        cmake --build . --config Release --target libcef_dll_wrapper
 
         # build Dullahan
         cd  "$stage"
