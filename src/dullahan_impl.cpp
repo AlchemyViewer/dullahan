@@ -186,17 +186,20 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
         subprocess_path = std::string(wcwd) + "\\dullahan_host.exe";
     }
     cef_string_utf8_to_utf16(subprocess_path.c_str(), subprocess_path.size(), &settings.browser_subprocess_path);
+    
+    settings.no_sandbox = true;
 #elif __APPLE__
     NSString* appBundlePath = [[NSBundle mainBundle] bundlePath];
     CefString(&settings.browser_subprocess_path) =
         [[NSString stringWithFormat:
-          @"%@/Contents/Frameworks/DullahanHelper.app/Contents/MacOS/DullahanHelper", appBundlePath] UTF8String];
+          @"%@/Contents/Frameworks/DullahanHost.app/Contents/MacOS/DullahanHost", appBundlePath] UTF8String];
 
     CefString(&settings.framework_dir_path) =
     [[NSString stringWithFormat:
       @"%@/Contents/Frameworks/Chromium Embedded Framework.framework", appBundlePath] UTF8String];
-#endif
-#ifdef __linux__
+    
+    settings.no_sandbox = true;
+#elif __linux__
     CefString(&settings.browser_subprocess_path) = getExeCwd() + "/dullahan_host";
     bool useSandbox = false;
     std::string sandboxName = getExeCwd() + "/chrome-sandbox";
@@ -213,8 +216,7 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
 
     settings.no_sandbox = !useSandbox;
 #else
-    // explicitly disable sandbox
-    settings.no_sandbox = true;
+#error "Unsupported Platform"
 #endif
     // required for CEF 72+ to indicate headless
     settings.windowless_rendering_enabled = true;
