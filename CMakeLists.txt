@@ -266,6 +266,7 @@ add_library(
     src/dullahan_render_handler.cpp
     src/dullahan_render_handler.h
 )
+set_target_properties(dullahan PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 # define which include directories to pull in
 target_include_directories(

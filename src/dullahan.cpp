@@ -186,9 +186,9 @@ void dullahan::nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t nativ
 {
     mImpl->nativeKeyboardEvent(key_event, native_scan_code, native_virtual_key, native_modifiers);
 }
-void dullahan::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input)
+void dullahan::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, uint32_t uni_char, bool keypad_input)
 {
-    mImpl->nativeKeyboardEventSDL2(key_event, key_data, key_modifiers, keypad_input);
+    mImpl->nativeKeyboardEventSDL2(key_event, key_data, key_modifiers, uni_char, keypad_input);
 }
 #endif
 
