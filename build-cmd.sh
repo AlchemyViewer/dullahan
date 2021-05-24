@@ -172,7 +172,7 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
             -DCMAKE_OSX_ARCHITECTURES="$AUTOBUILD_CONFIGURE_ARCH" \
             -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir" \
             -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_build_dir" \
-            -DUSE_SANDBOX=ON \
+            -DUSE_SANDBOX=OFF \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
             -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
             -DCMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL="3" \
