@@ -44,6 +44,8 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(IS_LINUX TRUE)
 
+    set(CMAKE_SKIP_RPATH TRUE)
+
     set(DULLAHAN_HELPER_TARGET "dullahan_host")
     set(DULLAHAN_HELPER_OUTPUT_NAME "DullahanHost")
 else()
@@ -184,7 +186,7 @@ elseif(IS_MACOS)
     check_exists(OPENGL_FRAMEWORK)
     check_exists(COCOA_FRAMEWORK)
 elseif(IS_LINUX)
-    set(CMAKE_CXX_LINK_FLAGS "-Wl,--no-keep-memory -Wl,--build-id -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib' -Wl,--exclude-libs,ALL")
+    set(CMAKE_CXX_LINK_FLAGS "-Wl,--no-keep-memory -Wl,--build-id -Wl,--exclude-libs,ALL")
     find_library(
         CEF_LIBRARY_RELEASE
         NAMES libcef.so
