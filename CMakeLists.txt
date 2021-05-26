@@ -300,9 +300,6 @@ if("${PROJECT_SOURCE_DIR}/src/dullahan_version.h.in" IS_NEWER_THAN "${PROJECT_SO
     file(STRINGS ${CEF_INCLUDE_DIR}/cef_version.h CHROME_VERSION_BUILD_STR REGEX "\#define CHROME_VERSION_BUILD ")
     file(STRINGS ${CEF_INCLUDE_DIR}/cef_version.h CHROME_VERSION_PATCH_STR REGEX "\#define CHROME_VERSION_PATCH ")
 
-    # Create a build number based on the actual build date/time
-    string(TIMESTAMP BUILDNUMBER "#define DULLAHAN_VERSION_BUILD %Y%m%d%H%M")
-
     # Parse the version input file into the Dullahan version header
     configure_file(
         "${PROJECT_SOURCE_DIR}/src/dullahan_version.h.in"
