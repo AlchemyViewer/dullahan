@@ -12,14 +12,8 @@ namespace
 {
     std::string getExeCwd()
     {
-        char path[ 4096 ];
-        int len = readlink("/proc/self/exe", path, sizeof(path));
-        if (len != -1)
-        {
-            path[len] = 0;
-            return dirname(path) ;
-        }
-        return "";
+        char path[PATH_MAX];
+        return (getcwd(path, sizeof(path)-1) ? std::string(path) : std::string(""));
     }
 }
 
