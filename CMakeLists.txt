@@ -44,8 +44,6 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(IS_LINUX TRUE)
 
-    set(CMAKE_SKIP_RPATH TRUE)
-
     set(DULLAHAN_HELPER_TARGET "dullahan_host")
     set(DULLAHAN_HELPER_OUTPUT_NAME "DullahanHost")
 else()
@@ -393,6 +391,10 @@ elseif(IS_LINUX)
         ${CEF_DLL_LIBRARY}
         ${CEF_LIBRARY}
     )
+
+    # Set rpath so that libraries can be placed next to the executable.
+    set_target_properties(${DULLAHAN_HELPER_TARGET} PROPERTIES INSTALL_RPATH "$ORIGIN")
+    set_target_properties(${DULLAHAN_HELPER_TARGET} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
 # Windows commands to copy CEF binaries and 'resources' folders to 
