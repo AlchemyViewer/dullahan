@@ -22,10 +22,14 @@ void dullahan_impl::platformAddCommandLines(CefRefPtr<CefCommandLine> command_li
 
         bool bDisableAudioServiceOutOfProcess { true };
         if(envvar && envvar[0] == '1' )
+        {
             bDisableAudioServiceOutOfProcess = false;
+        }
 
-        if( bDisableAudioServiceOutOfProcess )
+        if (bDisableAudioServiceOutOfProcess)
+        {
             command_line->AppendSwitchWithValue("disable-features", "AudioServiceOutOfProcess");
+        }
     }
 
 }

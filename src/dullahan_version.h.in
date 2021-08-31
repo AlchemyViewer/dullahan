@@ -37,8 +37,8 @@
 
 // version of this package
 #define DULLAHAN_VERSION_MAJOR 1
-#define DULLAHAN_VERSION_MINOR 9
-#define DULLAHAN_VERSION_POINT 0
+#define DULLAHAN_VERSION_MINOR 12
+#define DULLAHAN_VERSION_POINT 2
 
 // version numbers pulled from CEF build via Cmake
 @CEF_VERSION_STR@

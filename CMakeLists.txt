@@ -465,7 +465,7 @@ if(IS_WINDOWS)
 
     add_custom_command(
         TARGET webcube POST_BUILD
-        COMMAND "mt.exe" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
+        COMMAND "${CMAKE_MT}" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
         COMMENT "Adding custom manifest...")
 
     ###############################################################################
@@ -516,7 +516,7 @@ if(IS_WINDOWS)
 
     add_custom_command(
         TARGET simplegl POST_BUILD
-        COMMAND "mt.exe" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
+        COMMAND "${CMAKE_MT}" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
         COMMENT "Adding custom manifest...")
 
     ###############################################################################
@@ -548,7 +548,7 @@ if(IS_WINDOWS)
 
     add_custom_command(
         TARGET console POST_BUILD
-        COMMAND "mt.exe" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
+        COMMAND "${CMAKE_MT}" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
         COMMENT "Adding custom manifest...")
 
     ###############################################################################
@@ -583,7 +583,7 @@ if(IS_WINDOWS)
 
     add_custom_command(
         TARGET cef_minimal POST_BUILD
-        COMMAND "mt.exe" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
+        COMMAND "${CMAKE_MT}" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
         COMMENT "Adding custom manifest...")
 
 elseif(IS_MACOS)

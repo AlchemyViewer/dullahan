@@ -68,6 +68,7 @@ dullahan_impl::dullahan_impl() :
     mDisableWebSecurity(false),
     mUseMockKeyChain(false),
     mAutoPlayWithoutGesture(false),
+    mFakeUIForMediaStream(false),
     mFlipPixelsY(false),
     mFlipMouseY(false),
     mRequestContext(0),
@@ -120,6 +121,12 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
         {
             command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
         }
+		
+        if (mFakeUIForMediaStream)
+        {
+            command_line->AppendSwitch("use-fake-ui-for-media-stream");
+        }
+
         if (mProxyEnabled)
         {
             std::string proxy_type;
@@ -148,7 +155,7 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
             command_line->AppendSwitch("proxy-auto-detect");
         }
 
-		platformAddCommandLines( command_line );		
+        platformAddCommandLines(command_line);
     }
 }
 
@@ -171,19 +178,19 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
 
     CefSettings settings;
 
-    // point to host application
+    // point to host application helper
 #ifdef WIN32
     std::string subprocess_path;
     // explicitly set the path to the resources folder since defaults no longer work on some systems
-    if (!user_settings.browser_subprocess_path.empty())
+    if (!user_settings.host_process_path.empty())
     {
-        subprocess_path = user_settings.browser_subprocess_path + "\\dullahan_host.exe";
+        subprocess_path = user_settings.host_process_path + "\\" + user_settings.host_process_filename;
     }
     else
     {
         CHAR wcwd[MAX_PATH];
         GetCurrentDirectory(MAX_PATH, wcwd);
-        subprocess_path = std::string(wcwd) + "\\dullahan_host.exe";
+        subprocess_path = std::string(wcwd) + "\\" + user_settings.host_process_filename;
     }
     cef_string_utf8_to_utf16(subprocess_path.c_str(), subprocess_path.size(), &settings.browser_subprocess_path);
     
@@ -260,6 +267,13 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
         cef_string_utf8_to_utf16(user_settings.cache_path.c_str(), user_settings.cache_path.size(), &settings.cache_path);
     }
 
+    // as of CEF 90, the new way to disable cookies
+    if (user_settings.cookies_enabled == false)
+    {
+        CefString(&settings.cookieable_schemes_list) = "";
+        settings.cookieable_schemes_exclude_defaults = true;
+    }
+
     // insert a new string into user agent
     if (user_settings.user_agent_substring.length())
     {
@@ -272,11 +286,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
         cef_string_utf8_to_utf16(user_agent.c_str(), user_agent.size(), &settings.user_agent_product);
     }
 
-    // commenting out but leaving this here for future reference - shows how you can explicitly set
-    // whole of user agent string versus adding to what is there already
-    //std::string user_agent_direct("user agent string");
-    //cef_string_utf8_to_utf16(user_agent_direct.c_str(), user_agent_direct.size(), &settings.user_agent);
-
     // list of language locale codes used to configure the Accept-Language HTTP header value
     if (user_settings.accept_language_list.length())
     {
@@ -285,13 +294,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
                                  accept_language_list.size(), &settings.accept_language_list);
     }
 
-    if (!user_settings.cookies_enabled)
-    {
-        // this appears to be the way to fully disable cookies - empty list of schemes to accept and no defaults
-        CefString(&settings.cookieable_schemes_list) = "";
-        settings.cookieable_schemes_exclude_defaults = true;
-    }
-    
     // enable/disable media stream (web cams etc.)
     // IMPORTANT: there is no "Use Your WebCam OK?" dialog so enable this at your peril
     mMediaStreamEnabled = user_settings.media_stream_enabled;
@@ -324,6 +326,12 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     // this flag, if set, allows video/audio to autoplay if the URL parameters are configured
     // correctly to do so. (by default as of Chrome 70, audio/video does not autoplay)
     mAutoPlayWithoutGesture = user_settings.autoplay_without_gesture;
+
+    // this flag, if set allows you to bypass UI like "This page wants to use
+    // your microphone" and accept the request. Obviously, use with caution -
+    // eventually, this will be implemented as a callback so the consumer can
+    // provide their own ("Allow, "Disallow") UI.
+    mFakeUIForMediaStream = user_settings.fake_ui_for_media_stream;
 
     // if true, this setting inverts the pixels in Y direction - useful if your texture
     // coords are upside down compared to default for Dullahan
@@ -362,7 +370,7 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
 {
     DLNOUT("dullahan_impl::init()");
 
-	platormInitWidevine(user_settings.cache_path);
+    platormInitWidevine(user_settings.cache_path);
 
     if (!initCEF(user_settings))
     {
