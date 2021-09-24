@@ -33,6 +33,7 @@
 
 #include "dullahan_impl.h"
 
+#include <algorithm>
 #include <chrono>
 #include <thread>
 

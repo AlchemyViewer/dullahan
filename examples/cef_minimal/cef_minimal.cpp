@@ -165,7 +165,7 @@ class CefMinimal : public CefApp
 
                 render_handler_ = new RenderHandler();
 
-                browser_client_ = new BrowserClient(render_handler_);
+                browser_client_ = new BrowserClient(render_handler_.get());
 
                 CefString url = "https://news.google.com";
                 browser_ = CefBrowserHost::CreateBrowserSync(window_info, browser_client_.get(), url, browser_settings, nullptr, nullptr);
@@ -231,8 +231,8 @@ class CefMinimal : public CefApp
 
 int main(int argc, char* argv[])
 {
-    CefMainArgs main_args(GetModuleHandle(NULL));
-    int exit_code = CefExecuteProcess(main_args, NULL, nullptr);
+    CefMainArgs main_args(GetModuleHandle(nullptr));
+    int exit_code = CefExecuteProcess(main_args, nullptr, nullptr);
     if (exit_code >= 0)
     {
         return exit_code;

@@ -57,7 +57,7 @@
 
 dullahan_impl::dullahan_impl() :
     mInitialized(false),
-    mBrowser(0),
+    mBrowser(nullptr),
     mCallbackManager(new dullahan_callback_manager),
     mViewWidth(0),
     mViewHeight(0),
@@ -71,7 +71,7 @@ dullahan_impl::dullahan_impl() :
     mFakeUIForMediaStream(false),
     mFlipPixelsY(false),
     mFlipMouseY(false),
-    mRequestContext(0),
+    mRequestContext(nullptr),
     mRequestedPageZoom(1.0)
 {
     DLNOUT("dullahan_impl::dullahan_impl()");
@@ -388,7 +388,7 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     browser_settings.image_shrink_standalone_to_fit = user_settings.image_shrink_standalone_to_fit ? STATE_ENABLED : STATE_DISABLED;
 
     mRenderHandler = new dullahan_render_handler(this);
-    mBrowserClient = new dullahan_browser_client(this, mRenderHandler);
+    mBrowserClient = new dullahan_browser_client(this, mRenderHandler.get());
 
     CefString url = std::string();
     CefRefPtr<CefDictionaryValue> extra_info = nullptr;
