@@ -127,7 +127,9 @@ void app::init_dullahan()
     settings.background_color = 0xff666666;
     settings.cache_enabled = true;
     settings.locales_dir_path = "";
-    settings.cache_path = ".\\webcube_cache";
+    settings.user_data_path = "C:\\webcube\\data";
+    settings.root_cache_path = "C:\\webcube\\root_cache";
+    settings.cache_path = "C:\\webcube\\root_cache\\cache";
     settings.cookies_enabled = true;
     settings.disable_gpu = false;
     settings.disable_network_service = false;

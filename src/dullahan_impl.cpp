@@ -255,10 +255,16 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
         cef_string_utf8_to_utf16(user_settings.locales_dir_path.c_str(), user_settings.locales_dir_path.size(), &settings.locales_dir_path);
     }
 
+    // set path to where user data will be stored
+    if (!user_settings.user_data_path.empty())
+    {
+        cef_string_utf8_to_utf16(user_settings.user_data_path.c_str(), user_settings.user_data_path.size(), &settings.user_data_path);
+    }
+
     // set path to root cache if enabled and set
     if (user_settings.cache_enabled && user_settings.root_cache_path.length())
     {
-        CefString(&settings.root_cache_path) = user_settings.root_cache_path;
+        cef_string_utf8_to_utf16(user_settings.root_cache_path.c_str(), user_settings.root_cache_path.size(), &settings.root_cache_path);
     }
 
     // set path to cache if enabled and set

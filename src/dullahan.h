@@ -182,6 +182,9 @@ class dullahan
             // explicitly set the path to the locales folder since defaults no longer work on some systems
             std::string locales_dir_path = std::string();
 
+            // location where user data such as spell checking dictionaries and chrome modules are to be stored
+            std::string user_data_path = std::string();
+
             // The root directory that all cache_path and context_cache_path values
             // must have in common.
             // If this value is empty and cache_path is non-empty then this value
