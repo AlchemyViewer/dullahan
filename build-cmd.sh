@@ -114,8 +114,11 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
         cp "$cef_no_wrapper_dir/Release/libcef.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/libEGL.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/libGLESv2.dll" "$stage/bin/release/"
+        cp "$cef_no_wrapper_dir/Release/vk_swiftshader.dll" "$stage/bin/release/"
+        cp "$cef_no_wrapper_dir/Release/vulkan-1.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/snapshot_blob.bin" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/v8_context_snapshot.bin" "$stage/bin/release/"
+        cp "$cef_no_wrapper_dir/Release/vk_swiftshader_icd.json" "$stage/bin/release/"
 
         # CEF resources
         cp -R "$cef_no_wrapper_dir/Resources/"* "$stage/resources/"
@@ -261,11 +264,12 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
 		cp libdullahan.a ${stage}/lib/release/
 		cp ${cef_no_wrapper_build_dir}/libcef_dll_wrapper/libcef_dll_wrapper.a $stage/lib/release
 
-		cp -a ${cef_no_wrapper_dir}/Release/*.so ${stage}/lib/release/
+		cp -a ${cef_no_wrapper_dir}/Release/*.so* ${stage}/lib/release/
 		cp -a ${cef_no_wrapper_dir}/Release/swiftshader/* ${stage}/lib/release/swiftshader/
 
 		cp dullahan_host ${stage}/bin/release/
 
+        cp -a ${cef_no_wrapper_dir}/Release/*.json ${stage}/bin/release/
 		cp -a ${cef_no_wrapper_dir}/Release/*.bin ${stage}/bin/release/
 		cp -a ${cef_no_wrapper_dir}/Release/chrome-sandbox ${stage}/bin/release/
 
