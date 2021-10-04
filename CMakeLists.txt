@@ -393,6 +393,7 @@ elseif(IS_LINUX)
     )
 
     # Set rpath so that libraries can be placed next to the executable.
+    set_target_properties(${DULLAHAN_HELPER_TARGET} PROPERTIES LINK_FLAGS "-Wl,--disable-new-dtags")
     set_target_properties(${DULLAHAN_HELPER_TARGET} PROPERTIES INSTALL_RPATH "$ORIGIN")
     set_target_properties(${DULLAHAN_HELPER_TARGET} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
