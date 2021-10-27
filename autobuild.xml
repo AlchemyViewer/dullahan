@@ -20,11 +20,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>c43f8b312ccf7ffba1876ae218f461ed4eedb8fbb85634215d543f647ba9f46b705956c392d9afc779af9eb1c9f70e20</string>
+              <string>ed321f4e851348f0fc4b26fea34fbdf3d7fa86ab2005e1d2a5e469717c5921ae12c2279992b1e2f7ae3d3a54a56218e198e94eab9feea8a25583d0cd9be6e7d3</string>
               <key>hash_algorithm</key>
-              <string>sha3_384</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/94.4.5/cef_bin-94.4.5_g0fd0d6f_chromium-94.0.4606.71-darwin64-4606.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/95.7.12/cef_bin-95.7.12_g99c4ac0_chromium-95.0.4638.54-darwin64-4638.tar.xz</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -34,11 +34,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>efea4927ed59675f11f38ffc8b070421c4f80efff51896ce934a21b01ca3b1f46ef813063f652157098d1b251de72260</string>
+              <string>9174a1a98914512aa98926e78efbaa03f2b3ff4228ee1fb3b16aa4ec95173b09f5067204ed1b92d2e538de8cc3de31b35daae22d825b37176c9e4fd95d3ca8e9</string>
               <key>hash_algorithm</key>
-              <string>sha3_384</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/94.4.5/cef_bin-94.4.5_g0fd0d6f_chromium-94.0.4606.71-linux64-4606.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/95.7.12/cef_bin-95.7.12_g99c4ac0_chromium-95.0.4638.54-linux64-4638.tar.zst</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -60,18 +60,18 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>f8a7de4ddae840d7e7bf8a3c86c90113086d3e0787d37d8282ab65132e5be03a0d0aaf90691a70d03abfb8c3510f6013</string>
+              <string>8ebd750c43fa097cc0b46bbb848f45373ddcd0cc1fd5819fbc9fa83e6697ed048537ebcd2dc974856022b5fe2b36aea6257e9b38b8c1ddad7062bf8f8eca1b22</string>
               <key>hash_algorithm</key>
-              <string>sha3_384</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/94.4.5/cef_bin-94.4.5_g0fd0d6f_chromium-94.0.4606.71-windows64-4606.tar.xz</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/95.7.12/cef_bin-95.7.12_g99c4ac0_chromium-95.0.4638.54-windows64-4638.tar.xz</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
         <key>version</key>
-        <string>94.4.5_g0fd0d6f_chromium-94.0.4606.71</string>
+        <string>95.7.12_g99c4ac0_chromium-95.0.4638.54</string>
       </map>
     </map>
     <key>package_description</key>

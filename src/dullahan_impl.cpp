@@ -155,6 +155,11 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
             command_line->AppendSwitch("proxy-auto-detect");
         }
 
+        if (mFileAccessFromURL)
+        {
+            command_line->AppendSwitch("allow-file-access-from-files");
+        }
+
         platformAddCommandLines(command_line);
     }
 }
@@ -356,6 +361,8 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
         mProxyPort = user_settings.proxy_port;
     }
 
+    mFileAccessFromURL = user_settings.file_access_from_file_urls;
+
     // log file settings
     CefString(&settings.log_file) = user_settings.log_file;
     settings.log_severity = user_settings.log_verbose ? LOGSEVERITY_VERBOSE : LOGSEVERITY_DEFAULT;
@@ -388,9 +395,7 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     browser_settings.webgl = user_settings.webgl_enabled ? STATE_ENABLED : STATE_DISABLED;
     browser_settings.javascript = user_settings.javascript_enabled ? STATE_ENABLED : STATE_DISABLED;
     browser_settings.plugins = user_settings.plugins_enabled ? STATE_ENABLED : STATE_DISABLED;
-    browser_settings.application_cache = user_settings.cache_enabled ? STATE_ENABLED : STATE_DISABLED;
     browser_settings.background_color = user_settings.background_color;
-    browser_settings.file_access_from_file_urls = user_settings.file_access_from_file_urls ? STATE_ENABLED : STATE_DISABLED;
     browser_settings.image_shrink_standalone_to_fit = user_settings.image_shrink_standalone_to_fit ? STATE_ENABLED : STATE_DISABLED;
 
     mRenderHandler = new dullahan_render_handler(this);
@@ -418,10 +423,10 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     // off with it's head
     CefWindowInfo window_info;
     window_info.SetAsWindowless(0);
-    window_info.x = 0;
-    window_info.y = 0;
-    window_info.width = user_settings.initial_width;
-    window_info.height = user_settings.initial_height;
+    window_info.bounds.x = 0;
+    window_info.bounds.y = 0;
+    window_info.bounds.width = user_settings.initial_width;
+    window_info.bounds.height = user_settings.initial_height;
 
     mBrowser = CefBrowserHost::CreateBrowserSync(window_info, mBrowserClient.get(), url, browser_settings, extra_info, mRequestContext.get());
 
@@ -609,7 +614,7 @@ void dullahan_impl::setFocus()
 {
     if (mBrowser.get() && mBrowser->GetHost())
     {
-        mBrowser->GetHost()->SendFocusEvent(true);
+        mBrowser->GetHost()->SetFocus(true);
     }
 }
 
@@ -774,10 +779,10 @@ void dullahan_impl::showDevTools()
     if (mBrowser.get() && mBrowser->GetHost())
     {
         CefWindowInfo window_info;
-        window_info.x = 0;
-        window_info.y = 0;
-        window_info.width = 400;
-        window_info.height = 400;
+        window_info.bounds.x = 0;
+        window_info.bounds.y = 0;
+        window_info.bounds.width = 400;
+        window_info.bounds.height = 400;
 #ifdef WIN32
         window_info.SetAsPopup(nullptr, "Dullahan Dev Tools");
 #elif __APPLE__

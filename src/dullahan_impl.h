@@ -174,6 +174,7 @@ class dullahan_impl :
         bool mFakeUIForMediaStream;
         bool mFlipPixelsY;
         bool mFlipMouseY;
+        bool mFileAccessFromURL = false;
         double mRequestedPageZoom;
         const int mViewDepth = 4;
         std::vector<std::string> mCustomSchemes;

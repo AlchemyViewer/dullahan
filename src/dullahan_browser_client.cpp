@@ -327,15 +327,22 @@ bool dullahan_browser_client::GetAuthCredentials(CefRefPtr<CefBrowser> browser, 
 bool dullahan_browser_client::OnQuotaRequest(CefRefPtr<CefBrowser> browser,
         const CefString& origin_url,
         int64 new_size,
-        CefRefPtr<CefRequestCallback> callback)
+        CefRefPtr<CefCallback> callback)
 {
     CEF_REQUIRE_IO_THREAD();
 
     // 10MB hard coded for now
     static const int64 max_size = 1024 * 1024 * 10;
-
-    callback->Continue(new_size <= max_size);
-    return true;
+    if (new_size <= max_size)
+    {
+        callback->Continue();
+        return true;
+    }
+    else
+    {
+        callback->Cancel();
+        return false;
+    }
 }
 
 // CefDownloadHandler overrides
