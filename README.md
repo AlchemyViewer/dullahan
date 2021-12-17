@@ -96,4 +96,4 @@ Why yes there is - take a look in the `examples` subdirectory of this repository
 
 ## Why the name?
 
-[Seemed appropriate](https://en.wikipedia.org/wiki/Dullahan)
+[Seemed appropriate](https://en.wikipedia.org/wiki/Dullahan) 
