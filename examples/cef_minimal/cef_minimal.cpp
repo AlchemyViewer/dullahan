@@ -83,7 +83,7 @@ class BrowserClient :
     public CefLifeSpanHandler
 {
     public:
-        BrowserClient(RenderHandler* render_handler) :
+        BrowserClient(CefRefPtr<RenderHandler> render_handler) :
             render_handler_(render_handler)
         {
         }

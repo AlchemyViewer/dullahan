@@ -20,11 +20,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>db0cbb8177b4147526c10d0614475a0a09a1e5dea62c241437dbfc4eb24108bcc2522d44fb27213b8beee35a827b21e02a6ea6cad25cb0ce26a39102ba3f86ec</string>
+              <string>c49f298a1acf3be748e56695a577ee4f4be69049d96b54e8dc79175d3f5ca6a67eaf0cc8a85e8b9c837b70702d7aea51a82a72c0be767472fc856df688864a9c</string>
               <key>hash_algorithm</key>
               <string>blake2b</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/97.1.5/cef_bin-97.1.5_g2b00258_chromium-97.0.4692.71-darwin64-4692.tar.zst</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/101.0.15/cef_bin-101.0.15_gca159c5_chromium-101.0.4951.54-darwin64-4951.tar.zst</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -60,18 +60,18 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>33d3e16909b93ea4cd5f733b365affbfcf472a0a21eb19b468a2eeb4c5e280362cce3b6a4e45cfe7cb5ab836c38c4c4a3201126268f2baec3d277a3a760ab2db</string>
+              <string>74c59cd090b54d9f4829354a5fb7780397d700d1e1bb65791db6a80a3845bd03147dfa4a7f541ba6832da0b703d89fea265a58ccff65da02a7b0b19fae5844fe</string>
               <key>hash_algorithm</key>
               <string>blake2b</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/97.1.5/cef_bin-97.1.5_g2b00258_chromium-97.0.4692.71-windows64-4692.tar.zst</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/101.0.15/cef_bin-101.0.15_gca159c5_chromium-101.0.4951.54-windows64-4951.tar.zst</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
         <key>version</key>
-        <string>97.1.5_g2b00258_chromium-97.0.4692.71</string>
+        <string>101.0.15_gca159c5_chromium-101.0.4951.54</string>
       </map>
     </map>
     <key>package_description</key>

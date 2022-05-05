@@ -38,7 +38,7 @@
 #include <thread>
 
 dullahan_browser_client::dullahan_browser_client(dullahan_impl* parent,
-        dullahan_render_handler* render_handler) :
+        CefRefPtr<dullahan_render_handler> render_handler) :
     mParent(parent),
     mRenderHandler(render_handler)
 {

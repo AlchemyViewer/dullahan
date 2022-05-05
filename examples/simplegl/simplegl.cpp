@@ -234,7 +234,6 @@ int main(int argc, char* argv[])
     settings.initial_width = gTextureHeight;
     settings.javascript_enabled = true;
     settings.media_stream_enabled = true;
-    settings.plugins_enabled = true;
     settings.user_agent_substring = gDullahan->makeCompatibleUserAgentString("SimpleGL");
     settings.webgl_enabled = true;
 

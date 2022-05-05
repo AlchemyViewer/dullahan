@@ -394,9 +394,11 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     browser_settings.windowless_frame_rate = user_settings.frame_rate;
     browser_settings.webgl = user_settings.webgl_enabled ? STATE_ENABLED : STATE_DISABLED;
     browser_settings.javascript = user_settings.javascript_enabled ? STATE_ENABLED : STATE_DISABLED;
-    browser_settings.plugins = user_settings.plugins_enabled ? STATE_ENABLED : STATE_DISABLED;
     browser_settings.background_color = user_settings.background_color;
     browser_settings.image_shrink_standalone_to_fit = user_settings.image_shrink_standalone_to_fit ? STATE_ENABLED : STATE_DISABLED;
+    browser_settings.databases = user_settings.databases_enabled ? STATE_ENABLED : STATE_DISABLED;
+    browser_settings.local_storage = user_settings.local_storage_enabled ? STATE_ENABLED : STATE_DISABLED;
+ 
 
     mRenderHandler = new dullahan_render_handler(this);
     mBrowserClient = new dullahan_browser_client(this, mRenderHandler.get());
