@@ -164,6 +164,7 @@ class dullahan_impl :
         bool mInitialized;
         int mViewWidth;
         int mViewHeight;
+        std::string mProxyHostPort;
         bool mMediaStreamEnabled;
         bool mBeginFrameScheduling;
         bool mForceWaveAudio;
