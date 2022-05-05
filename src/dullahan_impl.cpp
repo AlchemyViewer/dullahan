@@ -37,7 +37,6 @@
 #include "include/cef_request_context.h"
 #include "include/cef_request_context_handler.h"
 #include "include/cef_waitable_event.h"
-#include "include/cef_web_plugin.h"
 #include "include/base/cef_logging.h"
 
 #include "dullahan_version.h"
