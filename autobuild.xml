@@ -20,11 +20,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>c49f298a1acf3be748e56695a577ee4f4be69049d96b54e8dc79175d3f5ca6a67eaf0cc8a85e8b9c837b70702d7aea51a82a72c0be767472fc856df688864a9c</string>
+              <string>cb19a2bba0648137dd96f7c4c5ec7683</string>
               <key>hash_algorithm</key>
-              <string>blake2b</string>
+              <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/101.0.15/cef_bin-101.0.15_gca159c5_chromium-101.0.4951.54-darwin64-4951.tar.zst</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/107.1.7/cef_bin-107.1.4_geb36a79_chromium-107.0.5304.68-darwin64-5304.tar.zst</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
