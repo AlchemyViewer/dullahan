@@ -92,7 +92,6 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
         mkdir -p "$stage/include/cef"
         mkdir -p "$stage/lib/release"
         mkdir -p "$stage/bin/release"
-        mkdir -p "$stage/bin/release/swiftshader"
         mkdir -p "$stage/resources"
         mkdir -p "$stage/LICENSES"
 
@@ -108,7 +107,6 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
 
         # CEF run time binaries (copy individually except SwiftShader so it's
         # obvious when a file is removed and this part of the script fails)
-        cp -R "$cef_no_wrapper_dir/Release/swiftshader/"* "$stage/bin/release/swiftshader/"
         cp "$cef_no_wrapper_dir/Release/chrome_elf.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/d3dcompiler_47.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/libcef.dll" "$stage/bin/release/"
@@ -276,7 +274,6 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
 
         lipo -create "$cef_no_wrapper_dir/x86_64/Debug/Chromium Embedded Framework.framework/Libraries/libEGL.dylib" "$cef_no_wrapper_dir/arm64/Debug/Chromium Embedded Framework.framework/Libraries/libEGL.dylib" -output "$stage/bin/debug/Chromium Embedded Framework.framework/Libraries/libEGL.dylib"
         lipo -create "$cef_no_wrapper_dir/x86_64/Debug/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib" "$cef_no_wrapper_dir/arm64/Debug/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib" -output "$stage/bin/debug/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib"
-        lipo -create "$cef_no_wrapper_dir/x86_64/Debug/Chromium Embedded Framework.framework/Libraries/libswiftshader_libGLESv2.dylib" "$cef_no_wrapper_dir/arm64/Debug/Chromium Embedded Framework.framework/Libraries/libswiftshader_libGLESv2.dylib" -output "$stage/bin/debug/Chromium Embedded Framework.framework/Libraries/libswiftshader_libGLESv2.dylib"
         lipo -create "$cef_no_wrapper_dir/x86_64/Debug/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib" "$cef_no_wrapper_dir/arm64/Debug/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib" -output "$stage/bin/debug/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib"
 
         rm "$stage/bin/debug/Chromium Embedded Framework.framework/Resources/snapshot_blob.bin"
@@ -302,7 +299,6 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
 
         lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Libraries/libEGL.dylib" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Libraries/libEGL.dylib" -output "$stage/bin/release/Chromium Embedded Framework.framework/Libraries/libEGL.dylib"
         lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib" -output "$stage/bin/release/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib"
-        lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Libraries/libswiftshader_libGLESv2.dylib" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Libraries/libswiftshader_libGLESv2.dylib" -output "$stage/bin/release/Chromium Embedded Framework.framework/Libraries/libswiftshader_libGLESv2.dylib"
         lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib" -output "$stage/bin/release/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib"
 
         rm "$stage/bin/release/Chromium Embedded Framework.framework/Resources/snapshot_blob.bin"
@@ -379,14 +375,12 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
 		mkdir -p "$stage/bin/release/"
 		mkdir -p "$stage/include"
 		mkdir -p "$stage/include/cef"
-		mkdir -p "$stage/lib/release/swiftshader"
 		mkdir -p "$stage/resources"
 		 
 		cp libdullahan.a ${stage}/lib/release/
 		cp ${cef_no_wrapper_build_dir}/libcef_dll_wrapper/libcef_dll_wrapper.a $stage/lib/release
 
 		cp -a ${cef_no_wrapper_dir}/Release/*.so* ${stage}/lib/release/
-		cp -a ${cef_no_wrapper_dir}/Release/swiftshader/* ${stage}/lib/release/swiftshader/
 
 		cp dullahan_host ${stage}/bin/release/
 
