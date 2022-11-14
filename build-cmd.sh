@@ -373,6 +373,7 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
 		
 		mkdir -p "$stage/LICENSES"
 		mkdir -p "$stage/bin/release/"
+		mkdir -p "$stage/lib/release/"
 		mkdir -p "$stage/include"
 		mkdir -p "$stage/include/cef"
 		mkdir -p "$stage/resources"
