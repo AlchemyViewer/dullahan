@@ -37,7 +37,6 @@
 #include "include/cef_request_context.h"
 #include "include/cef_request_context_handler.h"
 #include "include/cef_waitable_event.h"
-#include "include/cef_web_plugin.h"
 #include "include/base/cef_logging.h"
 
 #include "dullahan_version.h"
@@ -910,10 +909,12 @@ bool dullahan_impl::setCookie(const std::string url, const std::string name,
         cookie.secure = secure;
 
         cookie.has_expires = true;
-        cookie.expires.year = 2064;
-        cookie.expires.month = 4;
-        cookie.expires.day_of_week = 5;
-        cookie.expires.day_of_month = 10;
+        CefTime expirey_time;
+        expirey_time.year = 2064;
+        expirey_time.month = 4;
+        expirey_time.day_of_week = 5;
+        expirey_time.day_of_month = 10;
+        cef_time_to_basetime(&expirey_time, &cookie.expires);
 
         // wait for cookie to be set in setCookie callback
         class setCookieCallback :

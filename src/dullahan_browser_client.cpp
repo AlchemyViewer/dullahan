@@ -385,7 +385,6 @@ bool dullahan_browser_client::OnFileDialog(CefRefPtr<CefBrowser> browser,
         const CefString& title,
         const CefString& default_file_path,
         const std::vector<CefString>& accept_filters,
-        int selected_accept_filter,
         CefRefPtr<CefFileDialogCallback> callback)
 {
     CEF_REQUIRE_UI_THREAD();
@@ -433,8 +432,7 @@ bool dullahan_browser_client::OnFileDialog(CefRefPtr<CefBrowser> browser,
             cef_file_paths.push_back(*iter);
         }
 
-        const int file_path_index = 0;
-        callback->Continue(file_path_index, cef_file_paths);
+        callback->Continue(cef_file_paths);
     }
     else
     {

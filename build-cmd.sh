@@ -73,8 +73,8 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
         mkdir -p "$cef_no_wrapper_build_dir"
         cd "$cef_no_wrapper_build_dir"
         cmake -G "$AUTOBUILD_WIN_CMAKE_GEN" -A "$AUTOBUILD_WIN_VSPLATFORM" -DCEF_RUNTIME_LIBRARY_FLAG=/MD -DUSE_SANDBOX=OFF ..
-        build_sln cef.sln "Release" "$AUTOBUILD_WIN_VSPLATFORM" "libcef_dll_wrapper"
-        build_sln cef.sln "Debug" "$AUTOBUILD_WIN_VSPLATFORM" "libcef_dll_wrapper"
+        cmake --build . --config Debug --target libcef_dll_wrapper
+        cmake --build . --config Release --target libcef_dll_wrapper
 
         # generate the project files for Dullahan
         cd "$stage"
@@ -84,8 +84,8 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
             -DCEF_WRAPPER_BUILD_DIR="$(cygpath -w "$cef_no_wrapper_build_dir")" 
 
         # build individual dullahan libraries but not examples
-        build_sln "dullahan.sln" "Release" "$AUTOBUILD_WIN_VSPLATFORM" dullahan
-        build_sln "dullahan.sln" "Release" "$AUTOBUILD_WIN_VSPLATFORM" dullahan_host
+        cmake --build . --config Release --target dullahan
+        cmake --build . --config Release --target dullahan_host
 
         # prepare the staging dirs
         cd ..

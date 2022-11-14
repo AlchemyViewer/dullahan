@@ -143,7 +143,7 @@ class dullahan_browser_client :
             return this;
         }
         bool OnFileDialog(CefRefPtr<CefBrowser> browser, FileDialogMode mode, const CefString& title,
-                          const CefString& default_file_path, const std::vector<CefString>& accept_filters, int selected_accept_filter,
+                          const CefString& default_file_path, const std::vector<CefString>& accept_filters,
                           CefRefPtr<CefFileDialogCallback> callback) override;
 
         // CefJSDialogHandler overrides

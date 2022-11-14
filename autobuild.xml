@@ -34,11 +34,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>e44f6ee52b2b372d73fd87917c20eb79a0ea8367569671800f120749cfea0500e159c4a03d84906a9a6608520e95ce9b546d4c44780e2a11bbc8447e5f57c74b</string>
+              <string>8a62a880364da0a1ca710ea036d3e7f3</string>
               <key>hash_algorithm</key>
-              <string>blake2b</string>
+              <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/97.1.5/cef_bin-97.1.5_g2b00258_chromium-97.0.4692.71-linux64-4692.tar.zst</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/107.1.7/cef_bin-107.1.4_geb36a79_chromium-107.0.5304.68-linux64-5304.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -60,18 +60,18 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>74c59cd090b54d9f4829354a5fb7780397d700d1e1bb65791db6a80a3845bd03147dfa4a7f541ba6832da0b703d89fea265a58ccff65da02a7b0b19fae5844fe</string>
+              <string>46f1cc96dc81fe277f2044ff84ceab6d</string>
               <key>hash_algorithm</key>
-              <string>blake2b</string>
+              <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/101.0.15/cef_bin-101.0.15_gca159c5_chromium-101.0.4951.54-windows64-4951.tar.zst</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/107.1.7/cef_bin-107.1.7_g59a795c_chromium-107.0.5304.88-windows64-5304.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
         <key>version</key>
-        <string>101.0.15_gca159c5_chromium-101.0.4951.54</string>
+        <string>107.1.4_geb36a79_chromium-107.0.5304.68</string>
       </map>
     </map>
     <key>package_description</key>
