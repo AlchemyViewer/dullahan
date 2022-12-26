@@ -307,33 +307,30 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
         cp "$top/CEF_LICENSE.txt" "$stage/LICENSES"
         cp "$top/LICENSE.txt" "$stage/LICENSES"
 
-        # # sign the binaries (both CEF and DullahanHelper)
-        # CONFIG_FILE="$build_secrets_checkout/code-signing-osx/config.sh"
-        # if [ -f "$CONFIG_FILE" ]; then
-        #     source $CONFIG_FILE
+        # sign the binaries (both CEF and DullahanHelper)
+        if [ -n "${APPLE_SIGNATURE:=""}" -a -n "${APPLE_KEY:=""}" -a -n "${APPLE_KEYCHAIN:=""}" ]; then
+            KEYCHAIN_PATH="$HOME/Library/Keychains/$APPLE_KEYCHAIN"
+            security unlock-keychain -p $APPLE_KEY $KEYCHAIN_PATH
+            pushd "$stage/bin/release"
+                for dylib in "Chromium Embedded Framework.framework/Libraries/"*.dylib;
+                do
+                    if [ -f "$dylib" ]; then
+                        codesign --keychain "$KEYCHAIN_PATH" --sign "$APPLE_SIGNATURE" --force --timestamp "$dylib" || true
+                    fi
+                done
+                codesign --keychain "$KEYCHAIN_PATH" --sign "$APPLE_SIGNATURE" --force --timestamp "Chromium Embedded Framework.framework" || true
 
-        #     pushd "$stage/lib/release/Chromium Embedded Framework.framework/Libraries"
-        #     for dylib in lib*.dylib;
-        #     do
-        #         if [ -f "$dylib" ]; then
-        #             codesign --force --timestamp --options runtime --entitlements "$dullahan_source_dir/dullahan.entitlements" --sign "$APPLE_SIGNATURE" "$dylib"
-        #         fi
-        #     done
-        #     codesign --force --timestamp --options runtime --entitlements "$dullahan_source_dir/dullahan.entitlements" --sign "$APPLE_SIGNATURE" "../Chromium Embedded Framework"
-        #     popd
-
-        #     pushd "$stage/lib/release/"
-        #     for app in DullahanHelper*.app;
-        #     do
-        #         if [ -d "$app" ]; then
-        #             sed -i "" "s/DullahanHelper/${app%.*}/" "$app/Contents/Info.plist"
-        #             codesign --force --timestamp --options runtime --entitlements "$dullahan_source_dir/dullahan.entitlements" --sign "$APPLE_SIGNATURE" "$app"
-        #         fi
-        #     done
-        #     popd
-        # else
-        #     echo "No config file found; skipping codesign."
-        # fi
+                for app in DullahanHost*.app;
+                do
+                    if [ -d "$app" ]; then
+                        codesign --keychain "$KEYCHAIN_PATH" --sign "$APPLE_SIGNATURE" --force --timestamp --options runtime --entitlements "$dullahan_source_dir/dullahan.entitlements" "$app"
+                    fi
+                done
+            popd
+            security lock-keychain $KEYCHAIN_PATH
+        else
+            echo "Code signing not configured; skipping codesign."
+        fi
 
         # populate version_file (after CMake runs)
         g++ \
