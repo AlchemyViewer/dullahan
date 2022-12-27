@@ -191,7 +191,7 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
             cmake $top -G Xcode \
                 -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/x86_64" \
                 -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_dir/build_x86_64" \
-                -DUSE_SANDBOX=OFF \
+                -DUSE_SANDBOX=ON \
                 -DCMAKE_C_FLAGS="$ARCH_FLAGS_X86 $RELEASE_CFLAGS" \
                 -DCMAKE_CXX_FLAGS="$ARCH_FLAGS_X86 $RELEASE_CXXFLAGS" \
                 -DCMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL="3" \
@@ -220,7 +220,7 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
             cmake $top -G Xcode \
                 -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/arm64" \
                 -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_dir/build_arm64" \
-                -DUSE_SANDBOX=OFF \
+                -DUSE_SANDBOX=ON \
                 -DCMAKE_C_FLAGS="$ARCH_FLAGS_ARM64 $RELEASE_CFLAGS" \
                 -DCMAKE_CXX_FLAGS="$ARCH_FLAGS_ARM64 $RELEASE_CXXFLAGS" \
                 -DCMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL="3" \
@@ -269,6 +269,8 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
     
         lipo -create $cef_no_wrapper_dir/build_x86_64/libcef_dll_wrapper/Debug/libcef_dll_wrapper.a $cef_no_wrapper_dir/build_arm64/libcef_dll_wrapper/Debug/libcef_dll_wrapper.a -output ${stage}/lib/debug/libcef_dll_wrapper.a
 
+        lipo -create "$cef_no_wrapper_dir/x86_64/Debug/cef_sandbox.a" "$cef_no_wrapper_dir/arm64/Debug/cef_sandbox.a" -output "$stage/lib/debug/cef_sandbox.a"
+
         cp -R "$cef_no_wrapper_dir/x86_64/Debug/Chromium Embedded Framework.framework" "$stage/bin/debug"
         lipo -create "$cef_no_wrapper_dir/x86_64/Debug/Chromium Embedded Framework.framework/Chromium Embedded Framework" "$cef_no_wrapper_dir/arm64/Debug/Chromium Embedded Framework.framework/Chromium Embedded Framework" -output "$stage/bin/debug/Chromium Embedded Framework.framework/Chromium Embedded Framework"
 
@@ -293,6 +295,8 @@ print(':'.join(OrderedDict((dir.rstrip('/'), 1) for dir in sys.argv[1].split(':'
         dsymutil -o "$stage/bin/release/DullahanHost\ \(Renderer\).dSYM" "$stage/bin/release/DullahanHost (Renderer).app/Contents/MacOS/DullahanHost (Renderer)"
     
         lipo -create $cef_no_wrapper_dir/build_x86_64/libcef_dll_wrapper/Release/libcef_dll_wrapper.a $cef_no_wrapper_dir/build_arm64/libcef_dll_wrapper/Release/libcef_dll_wrapper.a -output ${stage}/lib/release/libcef_dll_wrapper.a
+
+        lipo -create "$cef_no_wrapper_dir/x86_64/Release/cef_sandbox.a" "$cef_no_wrapper_dir/arm64/Release/cef_sandbox.a" -output "$stage/lib/release/cef_sandbox.a"
 
         cp -R "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework" "$stage/bin/release"
         lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Chromium Embedded Framework" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Chromium Embedded Framework" -output "$stage/bin/release/Chromium Embedded Framework.framework/Chromium Embedded Framework"

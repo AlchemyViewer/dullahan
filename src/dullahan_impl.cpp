@@ -440,9 +440,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
 bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
 {
     DLNOUT("dullahan_impl::init()");
-
-    platormInitWidevine(user_settings.cache_path);
-
     if (!initCEF(user_settings))
     {
         return false;
