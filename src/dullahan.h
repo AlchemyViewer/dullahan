@@ -202,6 +202,9 @@ class dullahan
             // same path do not share sessions.
             std::string context_cache_path = std::string();
 
+            // Path to bundle that hosts dullahan for macOS.
+            std::string main_bundle_path = std::string();
+
             // list of language locale codes used to configure the Accept-Language HTTP header value
             // and change the default language of the browser
             std::string accept_language_list = "en-us";

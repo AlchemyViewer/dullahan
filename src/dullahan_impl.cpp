@@ -243,11 +243,10 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
         GetModuleFileNameW(NULL, &exe_path[0], MAX_PATH);
         std::string cur_exe_path = convert_wide_to_string(&exe_path[0], CP_UTF8);
         const size_t last_slash_idx = cur_exe_path.find_last_of("\\/");
-        if (last_slash_idx == std::string::npos)
+        if (last_slash_idx != std::string::npos)
         {
-            return false;
+            cur_exe_path = cur_exe_path.erase(last_slash_idx + 1);
         }
-        cur_exe_path = cur_exe_path.erase(last_slash_idx + 1);
         subprocess_path = std::string(cur_exe_path) + "\\" + user_settings.host_process_filename;
     }
 
@@ -256,19 +255,29 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     
     settings.no_sandbox = true;
 #elif __APPLE__
-    NSString* appBundlePath = [[NSBundle mainBundle] bundlePath];
-    CefString(&settings.browser_subprocess_path) =
-        [[NSString stringWithFormat:
-          @"%@/Contents/Frameworks/DullahanHost.app/Contents/MacOS/DullahanHost", appBundlePath] UTF8String];
+    std::string bundle_path;
+    if(!user_settings.main_bundle_path.empty())
+    {
+        bundle_path = user_settings.main_bundle_path;
+    }
+    else
+    {
+        NSString* appBundlePath = [[NSBundle mainBundle] bundlePath];
+        bundle_path = std::string([appBundlePath UTF8String]);
+    }
+    CefString(&settings.main_bundle_path) = bundle_path;
 
-    CefString(&settings.framework_dir_path) =
-    [[NSString stringWithFormat:
-      @"%@/Contents/Frameworks/Chromium Embedded Framework.framework", appBundlePath] UTF8String];
-    
+    const size_t last_slash_idx = bundle_path.find_last_of("\\/");
+    if (last_slash_idx != std::string::npos)
+    {
+        bundle_path = bundle_path.erase(last_slash_idx + 1);
+    }
+    CefString(&settings.browser_subprocess_path) = bundle_path + "/Contents/Frameworks/DullahanHost.app/Contents/MacOS/DullahanHost";
+    CefString(&settings.framework_dir_path) = bundle_path + "/Contents/Frameworks/Chromium Embedded Framework.framework";
+
     #if !defined(USE_SANDBOX)
         settings.no_sandbox = true;
     #endif
-
 #elif __linux__
     CefString(&settings.browser_subprocess_path) = getExeCwd() + "/dullahan_host";
     bool useSandbox = false;
