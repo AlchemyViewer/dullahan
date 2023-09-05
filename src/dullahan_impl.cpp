@@ -176,7 +176,7 @@ std::string convert_wide_to_string(const wchar_t* in, unsigned int code_page)
     std::string out;
     if (in)
     {
-        int len_in = wcslen(in);
+        int len_in = (int)wcslen(in);
         int len_out = WideCharToMultiByte(
             code_page,
             0,
@@ -300,9 +300,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     // act like a browser and do not persist session cookies ever
     settings.persist_session_cookies = false;
 
-    // turn on only for Windows 7+
-    CefEnableHighDPISupport();
-
     // explicitly set the path to the resources folder since defaults no longer work on some systems
     if (!user_settings.resources_dir_path.empty())
     {
@@ -313,12 +310,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     if (!user_settings.locales_dir_path.empty())
     {
         cef_string_utf8_to_utf16(user_settings.locales_dir_path.c_str(), user_settings.locales_dir_path.size(), &settings.locales_dir_path);
-    }
-
-    // set path to where user data will be stored
-    if (!user_settings.user_data_path.empty())
-    {
-        cef_string_utf8_to_utf16(user_settings.user_data_path.c_str(), user_settings.user_data_path.size(), &settings.user_data_path);
     }
 
     // set path to root cache if enabled and set
@@ -869,9 +860,7 @@ void dullahan_impl::printToPDF(const std::string path)
     if (mBrowser.get() && mBrowser->GetHost())
     {
         CefPdfPrintSettings settings;
-        settings.backgrounds_enabled = true;
         settings.landscape = true;
-        settings.header_footer_enabled = true;
         CefRefPtr<CefPdfPrintCallback> callback = this;
         mBrowser->GetHost()->PrintToPDF(path, settings, callback);
     }

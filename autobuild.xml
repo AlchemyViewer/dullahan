@@ -20,11 +20,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>cb19a2bba0648137dd96f7c4c5ec7683</string>
+              <string>5a63d6c2a920b2a982493169a7f3598e</string>
               <key>hash_algorithm</key>
               <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/107.1.7/cef_bin-107.1.4_geb36a79_chromium-107.0.5304.68-darwin64-5304.tar.zst</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/115.3.13/cef_bin-115.3.13_g749b4d4_chromium-115.0.5790.171-darwin64-5790.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -34,11 +34,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>8a62a880364da0a1ca710ea036d3e7f3</string>
+              <string>2e5b8c06da400e17b2d351577a1b6266</string>
               <key>hash_algorithm</key>
               <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/107.1.7/cef_bin-107.1.4_geb36a79_chromium-107.0.5304.68-linux64-5304.tar.bz2</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/115.3.13/cef_bin-115.3.13_g749b4d4_chromium-115.0.5790.171-linux64-5790.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -60,18 +60,18 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>46f1cc96dc81fe277f2044ff84ceab6d</string>
+              <string>e015310d704fa7574e93375b32c7d4fb</string>
               <key>hash_algorithm</key>
               <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/107.1.7/cef_bin-107.1.7_g59a795c_chromium-107.0.5304.88-windows64-5304.tar.bz2</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/115.3.13/cef_bin-115.3.14_g91e8c06_chromium-115.0.5790.172-windows64-5790.tar.zst</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
         <key>version</key>
-        <string>107.1.4_geb36a79_chromium-107.0.5304.68</string>
+        <string>115.3.13_g749b4d4_chromium-115.0.5790.171</string>
       </map>
     </map>
     <key>package_description</key>

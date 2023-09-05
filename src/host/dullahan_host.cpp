@@ -88,8 +88,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }).detach();
 #endif
 
-    CefEnableHighDPISupport();
-
     CefMainArgs args(hInstance);
 
     return CefExecuteProcess(args, nullptr, nullptr);

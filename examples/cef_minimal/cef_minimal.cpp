@@ -147,8 +147,6 @@ class CefMinimal : public CefApp
             settings.multi_threaded_message_loop = false;
             settings.windowless_rendering_enabled = true;
 
-            CefEnableHighDPISupport();
-
             CefMainArgs args(GetModuleHandle(nullptr));
 
             if (CefInitialize(args, settings, this, nullptr))
