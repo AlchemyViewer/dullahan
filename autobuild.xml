@@ -5,14 +5,6 @@
     <map>
       <key>cef-bin</key>
       <map>
-        <key>copyright</key>
-        <string>Copyright (c) 2008-2020 Marshall A. Greenblatt. Portions Copyright (c) 2006-2009 Google Inc. All rights reserved</string>
-        <key>license</key>
-        <string>bsd</string>
-        <key>license_file</key>
-        <string>LICENSES/cef.txt</string>
-        <key>name</key>
-        <string>cef-bin</string>
         <key>platforms</key>
         <map>
           <key>darwin64</key>
@@ -20,11 +12,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>5a63d6c2a920b2a982493169a7f3598e</string>
+              <string>bb65d4215615f9efa189f058cd798484</string>
               <key>hash_algorithm</key>
               <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/115.3.13/cef_bin-115.3.13_g749b4d4_chromium-115.0.5790.171-darwin64-5790.tar.bz2</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/117.1.4/cef_bin-117.1.4_ga26f38b_chromium-117.0.5938.92-darwin64-5938.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -34,11 +26,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>2e5b8c06da400e17b2d351577a1b6266</string>
+              <string>56166882a43b2aa5e203fb7c494869fc</string>
               <key>hash_algorithm</key>
               <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/115.3.13/cef_bin-115.3.13_g749b4d4_chromium-115.0.5790.171-linux64-5790.tar.bz2</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/117.1.4/cef_bin-117.1.4_ga26f38b_chromium-117.0.5938.92-linux64-5938.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -60,18 +52,26 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>e015310d704fa7574e93375b32c7d4fb</string>
+              <string>91af5f9c2c3f323500f8fa2d6a4d93d9</string>
               <key>hash_algorithm</key>
               <string>md5</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/115.3.13/cef_bin-115.3.14_g91e8c06_chromium-115.0.5790.172-windows64-5790.tar.zst</string>
+              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/117.1.4/cef_bin-117.1.4_ga26f38b_chromium-117.0.5938.92-windows64-5938.tar.zst</string>
             </map>
             <key>name</key>
             <string>windows64</string>
           </map>
         </map>
+        <key>license</key>
+        <string>bsd</string>
+        <key>license_file</key>
+        <string>LICENSES/cef.txt</string>
+        <key>copyright</key>
+        <string>Copyright (c) 2008-2020 Marshall A. Greenblatt. Portions Copyright (c) 2006-2009 Google Inc. All rights reserved</string>
         <key>version</key>
-        <string>115.3.13_g749b4d4_chromium-115.0.5790.171</string>
+        <string>117.1.4_ga26f38b_chromium-117.0.5938.92</string>
+        <key>name</key>
+        <string>cef-bin</string>
       </map>
     </map>
     <key>package_description</key>
