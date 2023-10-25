@@ -633,5 +633,5 @@ endif()
 # generic commands that have to go after everything else
 
 if(CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_CONFIGURATION_TYPES "Release")
+    set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 endif()
