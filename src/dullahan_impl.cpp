@@ -66,6 +66,7 @@ dullahan_impl::dullahan_impl() :
     mForceWaveAudio(false),
     mDisableGPU(true),
     mDisableWebSecurity(false),
+    mAllowFileAccessFromFiles(false),
     mUseMockKeyChain(false),
     mAutoPlayWithoutGesture(false),
     mFakeUIForMediaStream(false),
@@ -99,6 +100,13 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
         if (mBeginFrameScheduling == true)
         {
             command_line->AppendSwitch("enable-begin-frame-scheduling");
+        }
+
+        // The ability to access local files used to be a member of CefBrowserSettings but 
+        // now is is configured globally via command line switch (https://github.com/cefsharp/CefSharp/issues/3668)
+        if (mAllowFileAccessFromFiles == true)
+        {
+            command_line->AppendSwitch("allow-file-access-from-files");
         }
 
         if (mDisableGPU == true)
@@ -378,6 +386,10 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     // needing a web server.
     mDisableWebSecurity = user_settings.disable_web_security;
 
+    // this flag allows access to local files - it used to be set via a member of CefBrowserSettings
+    // but now must be set via the command line so we capture it here
+    mAllowFileAccessFromFiles = user_settings.file_access_from_file_urls;
+
     // this flag if set, adds a command line parameter that replaces disable_network_service
     // flag to bypass the dialog on macOS that appears in Chrome 79+ to disable the
     // "Chrome wants access to passwords" dialog on macOS that started to appear.
@@ -474,10 +486,10 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     // off with it's head
     CefWindowInfo window_info;
     window_info.SetAsWindowless(0);
-    window_info.bounds.x = 0;
-    window_info.bounds.y = 0;
-    window_info.bounds.width = user_settings.initial_width;
-    window_info.bounds.height = user_settings.initial_height;
+    window_info.windowless_rendering_enabled = true;
+    const int width = user_settings.initial_width;
+    const int height = user_settings.initial_height;
+    window_info.bounds = { 0, 0, width, height };
 
     mBrowser = CefBrowserHost::CreateBrowserSync(window_info, mBrowserClient.get(), url, browser_settings, extra_info, mRequestContext.get());
 
@@ -830,10 +842,7 @@ void dullahan_impl::showDevTools()
     if (mBrowser.get() && mBrowser->GetHost())
     {
         CefWindowInfo window_info;
-        window_info.bounds.x = 0;
-        window_info.bounds.y = 0;
-        window_info.bounds.width = 400;
-        window_info.bounds.height = 400;
+        window_info.bounds = { 0,0, 600, 800 };
 #ifdef WIN32
         window_info.SetAsPopup(nullptr, "Dullahan Dev Tools");
 #elif __APPLE__
@@ -860,6 +869,8 @@ void dullahan_impl::printToPDF(const std::string path)
     if (mBrowser.get() && mBrowser->GetHost())
     {
         CefPdfPrintSettings settings;
+        settings.print_background = true;
+        settings.display_header_footer = true;
         settings.landscape = true;
         CefRefPtr<CefPdfPrintCallback> callback = this;
         mBrowser->GetHost()->PrintToPDF(path, settings, callback);
@@ -897,13 +908,7 @@ bool dullahan_impl::setCookie(const std::string url, const std::string name,
         cookie.httponly = httponly;
         cookie.secure = secure;
 
-        cookie.has_expires = true;
-        CefTime expirey_time;
-        expirey_time.year = 2064;
-        expirey_time.month = 4;
-        expirey_time.day_of_week = 5;
-        expirey_time.day_of_month = 10;
-        cef_time_to_basetime(&expirey_time, &cookie.expires);
+        cookie.has_expires = false;
 
         // wait for cookie to be set in setCookie callback
         class setCookieCallback :

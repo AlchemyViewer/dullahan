@@ -170,6 +170,7 @@ class dullahan_impl :
         bool mForceWaveAudio;
         bool mDisableGPU;
         bool mDisableWebSecurity;
+        bool mAllowFileAccessFromFiles;
         bool mUseMockKeyChain;
         bool mAutoPlayWithoutGesture;
         bool mFakeUIForMediaStream;

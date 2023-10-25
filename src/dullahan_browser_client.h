@@ -46,7 +46,7 @@ class dullahan_browser_client :
 {
     public:
         dullahan_browser_client(dullahan_impl* parent,
-                                CefRefPtr<dullahan_render_handler> render_handler);
+            scoped_refptr<dullahan_render_handler> render_handler);
         ~dullahan_browser_client();
 
         // CefClient override
