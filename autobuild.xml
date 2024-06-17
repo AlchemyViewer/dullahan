@@ -16,11 +16,11 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>5bdc231cc48aa3213bef8ee64be93134</string>
+              <string>7eb68aae191b060e96a473709f80ba3ff2af925c9d6973f5c6b35b934fa0bda57a28c65aa63fb58430c73988ce2e7c65e97ec59c023674eb646c8fa664fb32fc</string>
               <key>hash_algorithm</key>
-              <string>md5</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/118.0.5993/cef_bin_118_4_1_g3dd6078_chromium_118_0_5993_54_darwin64_5993_tar.bz2</string>
+              <string>https://github.com/AlchemyViewer/3p-cef/releases/download/v118-cbbc46c/cef_bin_118_4_1_g3dd6078_chromium_118_0_5993_54_darwin64_5993_tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
@@ -30,37 +30,25 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>080d3e9effc857e0b7f9471fbf61161b</string>
+              <string>2420d96f458022cc37e9eea5606adc1e7c3d14a3ea4dfdbdf5d9de4d1ff53d7e013e204345696edf9a66d92b9584d3639c198a06d7417a72a1dda55cd4cd76de</string>
               <key>hash_algorithm</key>
-              <string>md5</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/118.0.5993/cef_bin-118.4.1_g3dd6078_chromium-118.0.5993.54-linux64-5993.tar.bz2</string>
+              <string>https://github.com/AlchemyViewer/3p-cef/releases/download/v118-cbbc46c/cef_bin-118.4.1_g3dd6078_chromium-118.0.5993.54-linux64-5993.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
-          </map>
-          <key>windows</key>
-          <map>
-            <key>archive</key>
-            <map>
-              <key>hash</key>
-              <string>ca3bd4f35e2ca5eb8062e7ddd4e8fc06</string>
-              <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/ct2/60316/566616/cef_bin-81.3.10_gb223419_chromium-81.0.4044.138-windows-542664.tar.bz2</string>
-            </map>
-            <key>name</key>
-            <string>windows</string>
           </map>
           <key>windows64</key>
           <map>
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>a5e7e87e57baed1f19613d2b67aaf6d0</string>
+              <string>5c91fa6095d7c2e2586528d73bf40e64edc9a53a617a346f3ff9ffdca2f647211a1e00c3393bb92bd5f27cf0dbf4108db3d86caa8bf107261e775b0ebe114ced</string>
               <key>hash_algorithm</key>
-              <string>md5</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://git.alchemyviewer.org/api/v4/projects/102/packages/generic/cef_bin/118.0.5993/cef_bin_118_4_1_g3dd6078_chromium_118_0_5993_54_windows64_5993_tar.zst</string>
+              <string>https://github.com/AlchemyViewer/3p-cef/releases/download/v118-cbbc46c/cef_bin_118_4_1_g3dd6078_chromium_118_0_5993_54_windows64_5993_tar.zst</string>
             </map>
             <key>name</key>
             <string>windows64</string>
@@ -199,7 +187,7 @@
       <key>name</key>
       <string>dullahan</string>
       <key>canonical_repo</key>
-      <string>https://bitbucket.org/lindenlab/dullahan</string>
+      <string>https://github.com/AlchemyViewer/dullahan</string>
       <key>description</key>
       <string>A headless browser SDK that uses the Chromium Embedded Framework (CEF). It is designed to make it easier to write applications that render modern web content directly to a memory buffer, inject synthesized mouse and keyboard events as well as interact with web based features like JavaScript or cookies.</string>
       <key>source_directory</key>

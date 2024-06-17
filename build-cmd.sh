@@ -53,14 +53,14 @@ case "$AUTOBUILD_PLATFORM" in
         mkdir -p "$cef_no_wrapper_build_dir"
         cd "$cef_no_wrapper_build_dir"
         MSYS2_ARG_CONV_EXCL=* \
-        cmake -G "$AUTOBUILD_WIN_CMAKE_GEN" -A "$AUTOBUILD_WIN_VSPLATFORM" -DCEF_RUNTIME_LIBRARY_FLAG="/MD" -DUSE_SANDBOX=OFF ..
+        cmake -G "Ninja Multi-Config" -DCEF_RUNTIME_LIBRARY_FLAG="/MD" -DUSE_SANDBOX=OFF ..
         cmake --build . --config Debug --target libcef_dll_wrapper
         cmake --build . --config Release --target libcef_dll_wrapper
 
         # generate the project files for Dullahan
         cd "$stage"
         cmake .. \
-            -G "$AUTOBUILD_WIN_CMAKE_GEN" -A "$AUTOBUILD_WIN_VSPLATFORM" \
+            -G "Ninja Multi-Config" \
             -DCEF_WRAPPER_DIR="$(cygpath -w "$cef_no_wrapper_dir")" \
             -DCEF_WRAPPER_BUILD_DIR="$(cygpath -w "$cef_no_wrapper_build_dir")" 
 
@@ -145,7 +145,7 @@ case "$AUTOBUILD_PLATFORM" in
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
         mkdir -p "$cef_no_wrapper_dir/build_x86_64"
         pushd "$cef_no_wrapper_dir/build_x86_64"
-            cmake ../x86_64/ -G Xcode -DPROJECT_ARCH="x86_64" \
+            cmake ../x86_64/ -G "Ninja Multi-Config" -DPROJECT_ARCH="x86_64" \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
                 -DCMAKE_OSX_SYSROOT=${SDKROOT} \
 
@@ -157,7 +157,7 @@ case "$AUTOBUILD_PLATFORM" in
 
         mkdir -p "$cef_no_wrapper_dir/build_arm64"
         pushd "$cef_no_wrapper_dir/build_arm64"
-            cmake ../arm64/ -G Xcode -DPROJECT_ARCH="arm64" \
+            cmake ../arm64/ -G "Ninja Multi-Config" -DPROJECT_ARCH="arm64" \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
                 -DCMAKE_OSX_SYSROOT=${SDKROOT} \
 
@@ -170,21 +170,12 @@ case "$AUTOBUILD_PLATFORM" in
         # build Dullahan
         mkdir -p "$stage/build_x86_64"
         pushd "$stage/build_x86_64"
-            cmake $top -G Xcode \
+            cmake $top -G "Ninja Multi-Config" \
                 -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/x86_64" \
                 -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_dir/build_x86_64" \
                 -DUSE_SANDBOX=OFF \
                 -DCMAKE_C_FLAGS="$ARCH_FLAGS_X86 $RELEASE_CFLAGS" \
                 -DCMAKE_CXX_FLAGS="$ARCH_FLAGS_X86 $RELEASE_CXXFLAGS" \
-                -DCMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL="3" \
-                -DCMAKE_XCODE_ATTRIBUTE_GCC_FAST_MATH=NO \
-                -DCMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS=YES \
-                -DCMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
-                -DCMAKE_XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING=YES \
-                -DCMAKE_XCODE_ATTRIBUTE_CLANG_X86_VECTOR_INSTRUCTIONS=sse4.2 \
-                -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD="c++17" \
-                -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY="libc++" \
-                -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
                 -DCMAKE_OSX_ARCHITECTURES:STRING=x86_64 \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
                 -DCMAKE_OSX_SYSROOT=${SDKROOT} \
@@ -199,20 +190,12 @@ case "$AUTOBUILD_PLATFORM" in
 
         mkdir -p "$stage/build_arm64"
         pushd "$stage/build_arm64"
-            cmake $top -G Xcode \
+            cmake $top -G "Ninja Multi-Config" \
                 -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/arm64" \
                 -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_dir/build_arm64" \
                 -DUSE_SANDBOX=OFF \
                 -DCMAKE_C_FLAGS="$ARCH_FLAGS_ARM64 $RELEASE_CFLAGS" \
                 -DCMAKE_CXX_FLAGS="$ARCH_FLAGS_ARM64 $RELEASE_CXXFLAGS" \
-                -DCMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL="3" \
-                -DCMAKE_XCODE_ATTRIBUTE_GCC_FAST_MATH=NO \
-                -DCMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS=YES \
-                -DCMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
-                -DCMAKE_XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING=YES \
-                -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD="c++17" \
-                -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY="libc++" \
-                -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
                 -DCMAKE_OSX_ARCHITECTURES:STRING=arm64 \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
                 -DCMAKE_OSX_SYSROOT=${SDKROOT} \
@@ -290,26 +273,23 @@ case "$AUTOBUILD_PLATFORM" in
         cp "$top/LICENSE.txt" "$stage/LICENSES"
 
         # sign the binaries (both CEF and DullahanHelper)
-        if [ -n "${APPLE_SIGNATURE:=""}" -a -n "${APPLE_KEY:=""}" -a -n "${APPLE_KEYCHAIN:=""}" ]; then
-            KEYCHAIN_PATH="$HOME/Library/Keychains/$APPLE_KEYCHAIN"
-            security unlock-keychain -p $APPLE_KEY $KEYCHAIN_PATH
+        if [ -n "${AUTOBUILD_KEYCHAIN_PATH:=""}" -a -n "${AUTOBUILD_KEYCHAIN_ID:=""}" ]; then
             pushd "$stage/bin/release"
                 for dylib in "Chromium Embedded Framework.framework/Libraries/"*.dylib;
                 do
                     if [ -f "$dylib" ]; then
-                        codesign --keychain "$KEYCHAIN_PATH" --sign "$APPLE_SIGNATURE" --force --timestamp "$dylib" || true
+                        codesign --keychain "$AUTOBUILD_KEYCHAIN_PATH" --sign "$AUTOBUILD_KEYCHAIN_ID" --force --timestamp "$dylib" || true
                     fi
                 done
-                codesign --keychain "$KEYCHAIN_PATH" --sign "$APPLE_SIGNATURE" --force --timestamp "Chromium Embedded Framework.framework" || true
+                codesign --keychain "$AUTOBUILD_KEYCHAIN_PATH" --sign "$AUTOBUILD_KEYCHAIN_ID" --force --timestamp "Chromium Embedded Framework.framework" || true
 
                 for app in DullahanHost*.app;
                 do
                     if [ -d "$app" ]; then
-                        codesign --keychain "$KEYCHAIN_PATH" --sign "$APPLE_SIGNATURE" --force --timestamp --options runtime --entitlements "$dullahan_source_dir/dullahan.entitlements" "$app"
+                        codesign --keychain "$AUTOBUILD_KEYCHAIN_PATH" --sign "$AUTOBUILD_KEYCHAIN_ID" --force --timestamp --options runtime --entitlements "$dullahan_source_dir/dullahan.entitlements" "$app"
                     fi
                 done
             popd
-            security lock-keychain $KEYCHAIN_PATH
         else
             echo "Code signing not configured; skipping codesign."
         fi

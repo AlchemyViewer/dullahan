@@ -4,18 +4,22 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-2022, macos-13]
+        os: [windows-2022, macos-14, ubuntu-22.04]
         addrsize: ["64"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: secondlife/action-autobuild@v3
+      - uses: AlchemyViewer/action-autobuild@v4
         with:
           addrsize: ${{ matrix.addrsize }}
+          build-variables-repo: alchemyviewer/build-variables
+          build-variables-ref: alchemy
+          apt-packages: ninja-build
+          brew-packages: ninja
   release:
     needs: build
     runs-on: [ubuntu-latest]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: secondlife/action-autobuild-release@v2
+      - uses: alchemyviewer/action-autobuild-release@v4
         with:
           public: true

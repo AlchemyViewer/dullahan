@@ -430,6 +430,7 @@ if(IS_WINDOWS)
         examples/webcube/webcube.h
         examples/webcube/webcube.rc
         examples/webcube/resource.h
+        src/win/compatibility.manifest
     )
 
     # define which include directories to pull in
@@ -464,11 +465,6 @@ if(IS_WINDOWS)
         endif()
     endif()
 
-    add_custom_command(
-        TARGET webcube POST_BUILD
-        COMMAND "${CMAKE_MT}" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
-        COMMENT "Adding custom manifest...")
-
     ###############################################################################
     # simplegl example application using FreeGLUT
 
@@ -476,6 +472,7 @@ if(IS_WINDOWS)
     add_executable(
         simplegl
         examples/simplegl/simplegl.cpp
+        src/win/compatibility.manifest
     )
 
     # define which include directories to pull in
@@ -515,11 +512,6 @@ if(IS_WINDOWS)
     # turn off spurious linker warnings
     set_target_properties(simplegl PROPERTIES LINK_FLAGS "/ignore:4099")
 
-    add_custom_command(
-        TARGET simplegl POST_BUILD
-        COMMAND "${CMAKE_MT}" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
-        COMMENT "Adding custom manifest...")
-
     ###############################################################################
     # console example application
 
@@ -527,6 +519,7 @@ if(IS_WINDOWS)
     add_executable(
         console
         examples/console/console.cpp
+        src/win/compatibility.manifest
     )
 
     # define which include directories to pull in
@@ -547,11 +540,6 @@ if(IS_WINDOWS)
     # turn off spurious linker warnings
     set_target_properties(console PROPERTIES LINK_FLAGS "/ignore:4099")
 
-    add_custom_command(
-        TARGET console POST_BUILD
-        COMMAND "${CMAKE_MT}" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
-        COMMENT "Adding custom manifest...")
-
     ###############################################################################
     # minimal CEF console example (doesn't use Dullahan)
 
@@ -559,6 +547,7 @@ if(IS_WINDOWS)
     add_executable(
         cef_minimal
         examples/cef_minimal/cef_minimal.cpp
+        src/win/compatibility.manifest
     )
 
     # define which include directories to pull in
@@ -581,12 +570,6 @@ if(IS_WINDOWS)
 
     # turn off spurious linker warnings
     set_target_properties(cef_minimal PROPERTIES LINK_FLAGS "/ignore:4099")
-
-    add_custom_command(
-        TARGET cef_minimal POST_BUILD
-        COMMAND "${CMAKE_MT}" -manifest \"$(ProjectDir)..\\src\\win\\compatibility.manifest\" -outputresource:"$(TargetDir)$(TargetFileName)"\;\#1
-        COMMENT "Adding custom manifest...")
-
 elseif(IS_MACOS)
     ###############################################################################
     # osxgl example application
