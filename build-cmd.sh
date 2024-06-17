@@ -118,17 +118,13 @@ case "$AUTOBUILD_PLATFORM" in
         rm "$stage"/version.{obj,exe}
     ;;
     darwin*)
-        # Setup osx sdk platform
-        SDKNAME="macosx"
-        export SDKROOT=$(xcodebuild -version -sdk ${SDKNAME} Path)
-
         # Deploy Targets
-        X86_DEPLOY=10.15
+        X86_DEPLOY=11.0
         ARM64_DEPLOY=11.0
 
         # Setup build flags
-        ARCH_FLAGS_X86="-arch x86_64 -mmacosx-version-min=${X86_DEPLOY} -isysroot ${SDKROOT} -msse4.2"
-        ARCH_FLAGS_ARM64="-arch arm64 -mmacosx-version-min=${ARM64_DEPLOY} -isysroot ${SDKROOT}"
+        ARCH_FLAGS_X86="-arch x86_64 -mmacosx-version-min=${X86_DEPLOY} -msse4.2"
+        ARCH_FLAGS_ARM64="-arch arm64 -mmacosx-version-min=${ARM64_DEPLOY}"
         DEBUG_COMMON_FLAGS="-O0 -g -fPIC -DPIC"
         RELEASE_COMMON_FLAGS="-O3 -g -fPIC -DPIC -fstack-protector-strong"
         DEBUG_CFLAGS="$DEBUG_COMMON_FLAGS"
@@ -145,27 +141,21 @@ case "$AUTOBUILD_PLATFORM" in
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
         mkdir -p "$cef_no_wrapper_dir/build_x86_64"
         pushd "$cef_no_wrapper_dir/build_x86_64"
-            cmake ../x86_64/ -G Xcode -DPROJECT_ARCH="x86_64" \
-                -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
-                -DCMAKE_OSX_SYSROOT=${SDKROOT} \
+            cmake ../x86_64/ -G "Ninja Multi-Config" -DPROJECT_ARCH="x86_64" \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET}
 
             cmake --build . --config Debug --target libcef_dll_wrapper
             cmake --build . --config Release --target libcef_dll_wrapper
         popd
-
-        export MACOSX_DEPLOYMENT_TARGET=${ARM64_DEPLOY}
 
         mkdir -p "$cef_no_wrapper_dir/build_arm64"
         pushd "$cef_no_wrapper_dir/build_arm64"
-            cmake ../arm64/ -G Xcode -DPROJECT_ARCH="arm64" \
-                -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
-                -DCMAKE_OSX_SYSROOT=${SDKROOT} \
+            cmake ../arm64/ -G "Ninja Multi-Config" -DPROJECT_ARCH="arm64" \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET}
 
             cmake --build . --config Debug --target libcef_dll_wrapper
             cmake --build . --config Release --target libcef_dll_wrapper
         popd
-
-        export MACOSX_DEPLOYMENT_TARGET=${X86_DEPLOY}
 
         # build Dullahan
         mkdir -p "$stage/build_x86_64"
@@ -187,15 +177,12 @@ case "$AUTOBUILD_PLATFORM" in
                 -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
                 -DCMAKE_OSX_ARCHITECTURES:STRING=x86_64 \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
-                -DCMAKE_OSX_SYSROOT=${SDKROOT} \
                 -DCMAKE_MACOSX_RPATH=YES \
                 -DCMAKE_INSTALL_PREFIX=$stage
 
             cmake --build . --config Debug
             cmake --build . --config Release
         popd
-
-        export MACOSX_DEPLOYMENT_TARGET=${ARM64_DEPLOY}
 
         mkdir -p "$stage/build_arm64"
         pushd "$stage/build_arm64"
@@ -215,7 +202,6 @@ case "$AUTOBUILD_PLATFORM" in
                 -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
                 -DCMAKE_OSX_ARCHITECTURES:STRING=arm64 \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
-                -DCMAKE_OSX_SYSROOT=${SDKROOT} \
                 -DCMAKE_MACOSX_RPATH=YES \
                 -DCMAKE_INSTALL_PREFIX=$stage
 
