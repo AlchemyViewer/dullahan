@@ -145,7 +145,7 @@ case "$AUTOBUILD_PLATFORM" in
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
         mkdir -p "$cef_no_wrapper_dir/build_x86_64"
         pushd "$cef_no_wrapper_dir/build_x86_64"
-            cmake ../x86_64/ -G "Ninja Multi-Config" -DPROJECT_ARCH="x86_64" \
+            cmake ../x86_64/ -G Xcode -DPROJECT_ARCH="x86_64" \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
                 -DCMAKE_OSX_SYSROOT=${SDKROOT} \
 
@@ -157,7 +157,7 @@ case "$AUTOBUILD_PLATFORM" in
 
         mkdir -p "$cef_no_wrapper_dir/build_arm64"
         pushd "$cef_no_wrapper_dir/build_arm64"
-            cmake ../arm64/ -G "Ninja Multi-Config" -DPROJECT_ARCH="arm64" \
+            cmake ../arm64/ -G Xcode -DPROJECT_ARCH="arm64" \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
                 -DCMAKE_OSX_SYSROOT=${SDKROOT} \
 
@@ -170,12 +170,21 @@ case "$AUTOBUILD_PLATFORM" in
         # build Dullahan
         mkdir -p "$stage/build_x86_64"
         pushd "$stage/build_x86_64"
-            cmake $top -G "Ninja Multi-Config" \
+            cmake $top -G Xcode \
                 -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/x86_64" \
                 -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_dir/build_x86_64" \
                 -DUSE_SANDBOX=OFF \
                 -DCMAKE_C_FLAGS="$ARCH_FLAGS_X86 $RELEASE_CFLAGS" \
                 -DCMAKE_CXX_FLAGS="$ARCH_FLAGS_X86 $RELEASE_CXXFLAGS" \
+                -DCMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL="3" \
+                -DCMAKE_XCODE_ATTRIBUTE_GCC_FAST_MATH=NO \
+                -DCMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS=YES \
+                -DCMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
+                -DCMAKE_XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING=YES \
+                -DCMAKE_XCODE_ATTRIBUTE_CLANG_X86_VECTOR_INSTRUCTIONS=sse4.2 \
+                -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD="c++17" \
+                -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY="libc++" \
+                -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
                 -DCMAKE_OSX_ARCHITECTURES:STRING=x86_64 \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
                 -DCMAKE_OSX_SYSROOT=${SDKROOT} \
@@ -190,12 +199,20 @@ case "$AUTOBUILD_PLATFORM" in
 
         mkdir -p "$stage/build_arm64"
         pushd "$stage/build_arm64"
-            cmake $top -G "Ninja Multi-Config" \
+            cmake $top -G Xcode \
                 -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/arm64" \
                 -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_dir/build_arm64" \
                 -DUSE_SANDBOX=OFF \
                 -DCMAKE_C_FLAGS="$ARCH_FLAGS_ARM64 $RELEASE_CFLAGS" \
                 -DCMAKE_CXX_FLAGS="$ARCH_FLAGS_ARM64 $RELEASE_CXXFLAGS" \
+                -DCMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL="3" \
+                -DCMAKE_XCODE_ATTRIBUTE_GCC_FAST_MATH=NO \
+                -DCMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS=YES \
+                -DCMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
+                -DCMAKE_XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING=YES \
+                -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD="c++17" \
+                -DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY="libc++" \
+                -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
                 -DCMAKE_OSX_ARCHITECTURES:STRING=arm64 \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
                 -DCMAKE_OSX_SYSROOT=${SDKROOT} \
