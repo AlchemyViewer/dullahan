@@ -69,16 +69,16 @@ case "$AUTOBUILD_PLATFORM" in
     windows*)
         load_vsvars
 
+        opts="$(replace_switch /Zi /Z7 $LL_BUILD_RELEASE)"
+
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
         cd "$cef_no_wrapper_dir"
         rm -rf "$cef_no_wrapper_build_dir"
         mkdir -p "$cef_no_wrapper_build_dir"
         cd "$cef_no_wrapper_build_dir"
-        cmake -G "$AUTOBUILD_WIN_CMAKE_GEN" -A "$AUTOBUILD_WIN_VSPLATFORM" \
-              -DCMAKE_CXX_FLAGS="$LL_BUILD_RELEASE" \
-              $(cmake_cxx_standard $LL_BUILD_RELEASE) \
-              -DCEF_RUNTIME_LIBRARY_FLAG=/MD -DUSE_SANDBOX=Off ..
-        build_sln cef.sln "Release|$AUTOBUILD_WIN_VSPLATFORM" "libcef_dll_wrapper"
+        cmake .. -G "Ninja Multi-Config" \
+                    -DCEF_RUNTIME_LIBRARY_FLAG="-MD" -DUSE_SANDBOX=Off
+        cmake --build . --config Release --target libcef_dll_wrapper
 
         # generate the project files for Dullahan
         cd "$stage"
@@ -86,12 +86,12 @@ case "$AUTOBUILD_PLATFORM" in
             -G "$AUTOBUILD_WIN_CMAKE_GEN" -A "$AUTOBUILD_WIN_VSPLATFORM" \
             -DCEF_WRAPPER_DIR="$(cygpath -w "$cef_no_wrapper_dir")" \
             -DCEF_WRAPPER_BUILD_DIR="$(cygpath -w "$cef_no_wrapper_build_dir")" \
-            -DCMAKE_CXX_FLAGS="$LL_BUILD_RELEASE" \
-            $(cmake_cxx_standard $LL_BUILD_RELEASE) \
+            -DCMAKE_CXX_FLAGS="$opts" \
+            $(cmake_cxx_standard $opts)
 
         # build individual dullahan libraries but not examples
-        build_sln "dullahan.sln" "Release|$AUTOBUILD_WIN_VSPLATFORM" dullahan
-        build_sln "dullahan.sln" "Release|$AUTOBUILD_WIN_VSPLATFORM" dullahan_host
+        cmake --build . --config Release --target dullahan
+        cmake --build . --config Release --target dullahan_host
 
         # prepare the staging dirs
         cd ..
@@ -133,7 +133,7 @@ case "$AUTOBUILD_PLATFORM" in
         cp "$top/LICENSE.txt" "$stage/LICENSES"
 
         # populate version_file (after CMake runs)
-        cl \
+        cl /EHsc \
             /Fo"$(cygpath -w "$stage/version.obj")" \
             /Fe"$(cygpath -w "$stage/version.exe")" \
             /I "$(cygpath -w "$cef_no_wrapper_dir/include/")"  \
