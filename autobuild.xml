@@ -19,39 +19,39 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>fe25699d025bac8925a80e43564608e15d6811c9</string>
+              <string>7eb68aae191b060e96a473709f80ba3ff2af925c9d6973f5c6b35b934fa0bda57a28c65aa63fb58430c73988ce2e7c65e97ec59c023674eb646c8fa664fb32fc</string>
               <key>hash_algorithm</key>
-              <string>sha1</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://github.com/secondlife/cef/releases/download/v118.0.5993.54b/cef_bin-118.4.1_g3dd6078_chromium-118.0.5993.54-darwin64-9522e46.tar.zst</string>
+              <string>https://github.com/AlchemyViewer/3p-cef/releases/download/v118-cbbc46c/cef_bin_118_4_1_g3dd6078_chromium_118_0_5993_54_darwin64_5993_tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin64</string>
           </map>
-          <key>windows</key>
+          <key>linux64</key>
           <map>
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>ecf47ff69172987dc246f06688dbbbfd4e79483a</string>
+              <string>2420d96f458022cc37e9eea5606adc1e7c3d14a3ea4dfdbdf5d9de4d1ff53d7e013e204345696edf9a66d92b9584d3639c198a06d7417a72a1dda55cd4cd76de</string>
               <key>hash_algorithm</key>
-              <string>sha1</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://github.com/secondlife/cef/releases/download/v113.1.5_ge452d82_chromium-113.0.5672.93-9175570/cef_bin-113.1.5_ge452d82_chromium-113.0.5672.93-windows-9175570.tar.zst</string>
+              <string>https://github.com/AlchemyViewer/3p-cef/releases/download/v118-cbbc46c/cef_bin-118.4.1_g3dd6078_chromium-118.0.5993.54-linux64-5993.tar.bz2</string>
             </map>
             <key>name</key>
-            <string>windows</string>
+            <string>darwin64</string>
           </map>
           <key>windows64</key>
           <map>
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>b0a3386821d9e15715733e64cd4b83beef67b311</string>
+              <string>5c91fa6095d7c2e2586528d73bf40e64edc9a53a617a346f3ff9ffdca2f647211a1e00c3393bb92bd5f27cf0dbf4108db3d86caa8bf107261e775b0ebe114ced</string>
               <key>hash_algorithm</key>
-              <string>sha1</string>
+              <string>blake2b</string>
               <key>url</key>
-              <string>https://github.com/secondlife/cef/releases/download/v118.0.5993.54b/cef_bin-118.4.1_g3dd6078_chromium-118.0.5993.54-windows64-9522e46.tar.zst</string>
+              <string>https://github.com/AlchemyViewer/3p-cef/releases/download/v118-cbbc46c/cef_bin_118_4_1_g3dd6078_chromium_118_0_5993_54_windows64_5993_tar.zst</string>
             </map>
             <key>name</key>
             <string>windows64</string>
