@@ -8,7 +8,7 @@ jobs:
         addrsize: ["64"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: AlchemyViewer/action-autobuild@v4
+      - uses: AlchemyViewer/action-autobuild@v5
         with:
           addrsize: ${{ matrix.addrsize }}
           build-variables-repo: alchemyviewer/build-variables
