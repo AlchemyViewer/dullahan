@@ -244,18 +244,42 @@ case "$AUTOBUILD_PLATFORM" in
         rm "$stage/version"
     ;;
     linux64)
+        # Default target per autobuild build --address-size
+        opts="-m$AUTOBUILD_ADDRSIZE $LL_BUILD_RELEASE"
+        plainopts="$(remove_cxxstd $opts)"
+
+        # build the CEF c->C++ wrapper "libcef_dll_wrapper"
+        pushd "$cef_no_wrapper_dir"
+            rm -rf "$cef_no_wrapper_build_dir"
+            mkdir -p "$cef_no_wrapper_build_dir"
+            pushd "$cef_no_wrapper_build_dir"
+                cmake "$cef_no_wrapper_dir" -G "Ninja" \
+                    -DCMAKE_BUILD_TYPE="Release" \
+                    -DCMAKE_C_FLAGS="$plainopts" \
+                    -DCMAKE_CXX_FLAGS="$opts" \
+                    $(cmake_cxx_standard $opts)
+
+                cmake --build . --config Release --target libcef_dll_wrapper --parallel $AUTOBUILD_CPU_COUNT
+            popd
+        popd
+
+        mkdir -p "$stage/build"
+        pushd "$stage/build"
+            cmake $top -G Ninja \
+                -DCMAKE_BUILD_TYPE="Release" \
+                -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir" \
+                -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_build_dir" \
+                -DCMAKE_C_FLAGS:STRING="$plainopts" \
+                -DCMAKE_CXX_FLAGS:STRING="$opts" \
+                $(cmake_cxx_standard $opts) \
+                -DCMAKE_INSTALL_PREFIX=stage
+
+            cmake --build . --config Release --parallel $AUTOBUILD_CPU_COUNT
+            cmake --install . --config Release
+        popd
+
         #Force version regeneration.
         rm -f src/dullahan_version.h
-
-        cmake -S . -B stage/build  -DCMAKE_BUILD_TYPE=Release -G Ninja -DCMAKE_INSTALL_PREFIX=stage -DENABLE_CXX11_ABI=ON \
-        -DUSE_SPOTIFY_CEF=TRUE -DSPOTIFY_CEF_URL=https://cef-builds.spotifycdn.com/cef_binary_118.4.1%2Bg3dd6078%2Bchromium-118.0.5993.54_linux64_beta_minimal.tar.bz2
-		cmake --build stage/build
-		cmake --install stage/build
-
-        strip stage/lib/release/libcef.so
-	rm stage/bin/release/*.so*
-	rm stage/bin/release/*.json
-
         g++ -std=c++17  -I "${cef_no_wrapper_dir}/include"  -I "${dullahan_source_dir}" -o "$stage/version"  "$top/tools/autobuild_version.cpp"
 
         "$stage/version" > "$stage/VERSION.txt"
