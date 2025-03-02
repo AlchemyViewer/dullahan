@@ -244,6 +244,9 @@ case "$AUTOBUILD_PLATFORM" in
         rm "$stage/version"
     ;;
     linux64)
+        #Force version regeneration.
+        rm -f src/dullahan_version.h
+
         # Default target per autobuild build --address-size
         opts="-m$AUTOBUILD_ADDRSIZE $LL_BUILD_RELEASE"
         plainopts="$(remove_cxxstd $opts)"
@@ -278,18 +281,31 @@ case "$AUTOBUILD_PLATFORM" in
             cmake --install . --config Release
         popd
 
-        #Force version regeneration.
-        rm -f src/dullahan_version.h
         g++ -std=c++17  -I "${cef_no_wrapper_dir}/include"  -I "${dullahan_source_dir}" -o "$stage/version"  "$top/tools/autobuild_version.cpp"
 
         "$stage/version" > "$stage/VERSION.txt"
         rm "$stage/version"
 
-        mkdir -p "$stage/LICENSES"
-        mkdir -p "$stage/include/cef"
+		mkdir -p "$stage/LICENSES"
+		mkdir -p "$stage/bin/release/"
+		mkdir -p "$stage/lib/release/"
+		mkdir -p "$stage/include/cef"
+		mkdir -p "$stage/resources"
+		 
+		cp $stage/build/libdullahan.a ${stage}/lib/release/
+		cp ${cef_no_wrapper_build_dir}/libcef_dll_wrapper/libcef_dll_wrapper.a $stage/lib/release
 
-        cp ${dullahan_source_dir}/dullahan.h ${stage}/include/cef/
-        cp ${dullahan_source_dir}/dullahan_version.h ${stage}/include/cef/
+		cp -a ${cef_no_wrapper_dir}/Release/*.so* ${stage}/lib/release/
+
+		cp $stage/build/dullahan_host ${stage}/bin/release/
+
+        cp -a ${cef_no_wrapper_dir}/Release/*.json ${stage}/bin/release/
+		cp -a ${cef_no_wrapper_dir}/Release/*.bin ${stage}/bin/release/
+		cp -a ${cef_no_wrapper_dir}/Release/chrome-sandbox ${stage}/bin/release/
+
+		cp -R ${cef_no_wrapper_dir}/Resources/* ${stage}/resources/
+		cp ${dullahan_source_dir}/dullahan.h ${stage}/include/cef/
+		cp ${dullahan_source_dir}/dullahan_version.h ${stage}/include/cef/
         cp "$top/CEF_LICENSE.txt" "$stage/LICENSES"
         cp "$top/LICENSE.txt" "$stage/LICENSES"
         ;;
