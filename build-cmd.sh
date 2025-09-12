@@ -44,54 +44,35 @@ source_environment_tempfile="$stage/source_environment.sh"
 # remove_cxxstd
 source "$(dirname "$AUTOBUILD_VARIABLES_FILE")/functions"
 
-# Use msbuild.exe instead of devenv.com
-build_sln() {
-    local solution=$1
-    local config=$2
-    local proj="${3:-}"
-    local toolset="${AUTOBUILD_WIN_VSTOOLSET:-v143}"
-
-    # e.g. config = "Release|$AUTOBUILD_WIN_VSPLATFORM" per devenv.com convention
-    local -a confparts
-    IFS="|" read -ra confparts <<< "$config"
-
-    msbuild.exe \
-        "$(cygpath -w "$solution")" \
-        ${proj:+-t:"$proj"} \
-        -p:Configuration="${confparts[0]}" \
-        -p:Platform="${confparts[1]}" \
-        -p:PlatformToolset=$toolset
-}
-
 build=${AUTOBUILD_BUILD_ID:=0}
 
 case "$AUTOBUILD_PLATFORM" in
     windows*)
         load_vsvars
 
-        opts="$(replace_switch /Zi /Z7 $LL_BUILD_RELEASE)"
-
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
         cd "$cef_no_wrapper_dir"
         rm -rf "$cef_no_wrapper_build_dir"
         mkdir -p "$cef_no_wrapper_build_dir"
         cd "$cef_no_wrapper_build_dir"
-        cmake .. -G "Ninja Multi-Config" \
-                    -DCEF_RUNTIME_LIBRARY_FLAG="-MD" -DUSE_SANDBOX=Off
-        cmake --build . --config Release --target libcef_dll_wrapper
+        cmake -G "$AUTOBUILD_WIN_CMAKE_GEN" -A "$AUTOBUILD_WIN_VSPLATFORM" \
+              -DCMAKE_CXX_FLAGS="$LL_BUILD_RELEASE" \
+              $(cmake_cxx_standard $LL_BUILD_RELEASE) \
+              -DCEF_RUNTIME_LIBRARY_FLAG=-MD -DUSE_SANDBOX=Off ..
+        cmake --build . --config Release --target libcef_dll_wrapper --parallel $AUTOBUILD_CPU_COUNT
 
         # generate the project files for Dullahan
         cd "$stage"
         cmake .. \
             -G "$AUTOBUILD_WIN_CMAKE_GEN" -A "$AUTOBUILD_WIN_VSPLATFORM" \
-            -DCEF_WRAPPER_DIR="$(cygpath -w "$cef_no_wrapper_dir")" \
-            -DCEF_WRAPPER_BUILD_DIR="$(cygpath -w "$cef_no_wrapper_build_dir")" \
-            -DCMAKE_CXX_FLAGS="$opts" \
-            $(cmake_cxx_standard $opts)
+            -DCEF_WRAPPER_DIR="$(cygpath -m "$cef_no_wrapper_dir")" \
+            -DCEF_WRAPPER_BUILD_DIR="$(cygpath -m "$cef_no_wrapper_build_dir")" \
+            -DCMAKE_CXX_FLAGS="$LL_BUILD_RELEASE" \
+            $(cmake_cxx_standard $LL_BUILD_RELEASE) \
 
         # build individual dullahan libraries but not examples
-        cmake --build . --config Release --target dullahan
-        cmake --build . --config Release --target dullahan_host
+        cmake --build . --config Release --target dullahan --parallel $AUTOBUILD_CPU_COUNT
+        cmake --build . --config Release --target dullahan_host --parallel $AUTOBUILD_CPU_COUNT
 
         # prepare the staging dirs
         cd ..
@@ -114,12 +95,16 @@ case "$AUTOBUILD_PLATFORM" in
 
         # CEF run time binaries (copy individually except SwiftShader so it's
         # obvious when a file is removed and this part of the script fails)
+        cp "$cef_no_wrapper_dir/Release/bootstrap.exe" "$stage/bin/release/"
+        cp "$cef_no_wrapper_dir/Release/bootstrapc.exe" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/chrome_elf.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/d3dcompiler_47.dll" "$stage/bin/release/"
+        cp "$cef_no_wrapper_dir/Release/dxcompiler.dll" "$stage/bin/release/"
+        cp "$cef_no_wrapper_dir/Release/dxil.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/libcef.dll" "$stage/bin/release/"
+        cp "$cef_no_wrapper_dir/Release/libcef.lib" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/libEGL.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/libGLESv2.dll" "$stage/bin/release/"
-        cp "$cef_no_wrapper_dir/Release/snapshot_blob.bin" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/v8_context_snapshot.bin" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/vk_swiftshader.dll" "$stage/bin/release/"
         cp "$cef_no_wrapper_dir/Release/vk_swiftshader_icd.json" "$stage/bin/release/"
@@ -134,10 +119,10 @@ case "$AUTOBUILD_PLATFORM" in
 
         # populate version_file (after CMake runs)
         cl /EHsc \
-            /Fo"$(cygpath -w "$stage/version.obj")" \
-            /Fe"$(cygpath -w "$stage/version.exe")" \
-            /I "$(cygpath -w "$cef_no_wrapper_dir/include/")"  \
-            /I "$(cygpath -w "$top/src")"  \
+            -Fo"$(cygpath -w "$stage/version.obj")" \
+            -Fe"$(cygpath -w "$stage/version.exe")" \
+            -I "$(cygpath -w "$cef_no_wrapper_dir/include/")"  \
+            -I "$(cygpath -w "$top/src")"  \
             "$(cygpath -w "$top/tools/autobuild_version.cpp")"
         "$stage/version.exe" > "$stage/version.txt"
         rm "$stage"/version.{obj,exe}
@@ -145,77 +130,93 @@ case "$AUTOBUILD_PLATFORM" in
     darwin*)
         export MACOSX_DEPLOYMENT_TARGET="$LL_BUILD_DARWIN_DEPLOY_TARGET"
 
+        opts="$LL_BUILD_RELEASE"
+        plainopts="$(remove_cxxstd $opts)"
+
         # build the CEF c->C++ wrapper "libcef_dll_wrapper"
-        pushd "$cef_no_wrapper_dir"
-            rm -rf "$cef_no_wrapper_build_dir"
-            mkdir -p "$cef_no_wrapper_build_dir"
-            pushd "$cef_no_wrapper_build_dir"
-                for arch in x86_64 arm64 ; do
-                    ARCH_ARGS="-arch $arch"
-                    cxx_opts="${TARGET_OPTS:-$ARCH_ARGS $LL_BUILD_RELEASE}"
-                    cc_opts="$(remove_cxxstd $cxx_opts)"
-
-                    mkdir -p "$arch"
-                    pushd "$arch"
-                        cmake "$cef_no_wrapper_dir/$arch" -G Xcode \
-                            -DPROJECT_ARCH="$arch" \
-                            -DCMAKE_C_FLAGS="$cc_opts" \
-                            -DCMAKE_CXX_FLAGS="$cxx_opts" \
-                            -DCMAKE_OSX_ARCHITECTURES="$arch" \
-                            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
-                            $(cmake_cxx_standard $opts)
-
-                        cmake --build . --config Release --target libcef_dll_wrapper --parallel $AUTOBUILD_CPU_COUNT
-                    popd
-                done
-            popd
+        mkdir -p "$cef_no_wrapper_build_dir/x86_64"
+        pushd "$cef_no_wrapper_build_dir/x86_64"
+            cmake -G Xcode -DCMAKE_BUILD_TYPE=Release \
+              -DPROJECT_ARCH="x86_64" \
+              -DCMAKE_C_FLAGS="$plainopts" \
+              -DCMAKE_CXX_FLAGS="$opts" \
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+              $(cmake_cxx_standard $opts) \
+              ../../x86_64
+            cmake --build . --config Release --target libcef_dll_wrapper --parallel $AUTOBUILD_CPU_COUNT
         popd
 
-        pushd "$stage"
-            for arch in x86_64 arm64 ; do
-                ARCH_ARGS="-arch $arch"
-                cxx_opts="${TARGET_OPTS:-$ARCH_ARGS $LL_BUILD_RELEASE}"
-                cc_opts="$(remove_cxxstd $cxx_opts)"
+        # build Dullahan
+        mkdir -p "$stage/build_x86_64"
+        pushd "$stage/build_x86_64"
+            cmake "$top" -G Xcode -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+                -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/x86_64" \
+                -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_build_dir/x86_64" \
+                -DCMAKE_C_FLAGS:STRING="$plainopts" \
+                -DCMAKE_CXX_FLAGS:STRING="$opts" \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+                $(cmake_cxx_standard $opts)
 
-                mkdir -p "build_$arch"
-                pushd "build_$arch"
-                    cmake $top -G Xcode \
-                        -DCMAKE_OSX_ARCHITECTURES="$arch" \
-                        -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
-                        -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/$arch" \
-                        -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_build_dir/$arch" \
-                        -DCMAKE_C_FLAGS:STRING="$cc_opts" \
-                        -DCMAKE_CXX_FLAGS:STRING="$cxx_opts" \
-                        $(cmake_cxx_standard $opts)
+            cmake --build . --config Release --target dullahan
+            cmake --build . --config Release --target dullahan_host --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host_alerts --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host_gpu --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host_renderer --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host_plugin --parallel $AUTOBUILD_CPU_COUNT
+        popd
 
-                    cmake --build . --config Release --parallel $AUTOBUILD_CPU_COUNT
-                popd
-            done
+        mkdir -p "$cef_no_wrapper_build_dir/arm64"
+        pushd "$cef_no_wrapper_build_dir/arm64"
+            cmake -G Xcode -DCMAKE_BUILD_TYPE=Release \
+                -DPROJECT_ARCH="arm64" \
+                -DCMAKE_C_FLAGS="$plainopts" \
+                -DCMAKE_CXX_FLAGS="$opts" \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+                $(cmake_cxx_standard $opts) \
+                ../../arm64
+            cmake --build . --config Release --target libcef_dll_wrapper --parallel $AUTOBUILD_CPU_COUNT
+        popd
+
+        # build Dullahan
+        mkdir -p "$stage/build_arm64"
+        pushd "$stage/build_arm64"
+            cmake "$top" -G Xcode -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES="arm64" \
+                -DCEF_WRAPPER_DIR="$cef_no_wrapper_dir/arm64" \
+                -DCEF_WRAPPER_BUILD_DIR="$cef_no_wrapper_build_dir/arm64" \
+                -DCMAKE_C_FLAGS:STRING="$plainopts" \
+                -DCMAKE_CXX_FLAGS:STRING="$opts" \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+                $(cmake_cxx_standard $opts)
+
+            cmake --build . --config Release --target dullahan --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host_alerts --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host_gpu --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host_renderer --parallel $AUTOBUILD_CPU_COUNT
+            cmake --build . --config Release --target dullahan_host_plugin --parallel $AUTOBUILD_CPU_COUNT
         popd
 
         # copy files to staging ready to be packaged
         mkdir -p "$stage/include/cef"
         mkdir -p "$stage/lib/release"
         mkdir -p "$stage/LICENSES"
-
         lipo -create -output $stage/lib/release/libdullahan.a "$stage/build_x86_64/Release/libdullahan.a" "$stage/build_arm64/Release/libdullahan.a"
         cp "$dullahan_source_dir/dullahan.h" "$stage/include/cef/"
         cp "$dullahan_source_dir/dullahan_version.h" "$stage/include/cef/"
         cp -R "$stage/build_x86_64/Release/DullahanHelper.app" "$stage/lib/release"
 
-        cp -R "$stage/build_x86_64/Release/DullahanHelper.app" "$stage/lib/release/DullahanHelper (GPU).app"
-        mv "$stage/lib/release/DullahanHelper (GPU).app/Contents/MacOS/DullahanHelper" "$stage/lib/release/DullahanHelper (GPU).app/Contents/MacOS/DullahanHelper (GPU)"
-
-        cp -R "$stage/build_x86_64/Release/DullahanHelper.app" "$stage/lib/release/DullahanHelper (Renderer).app"
-        mv "$stage/lib/release/DullahanHelper (Renderer).app/Contents/MacOS/DullahanHelper" "$stage/lib/release/DullahanHelper (Renderer).app/Contents/MacOS/DullahanHelper (Renderer)"
-
-        cp -R "$stage/build_x86_64/Release/DullahanHelper.app" "$stage/lib/release/DullahanHelper (Plugin).app"
-        mv "$stage/lib/release/DullahanHelper (Plugin).app/Contents/MacOS/DullahanHelper" "$stage/lib/release/DullahanHelper (Plugin).app/Contents/MacOS/DullahanHelper (Plugin)"
+        cp -R "$stage/build_x86_64/Release/DullahanHelper (Alerts).app" "$stage/lib/release/DullahanHelper (Alerts).app"
+        cp -R "$stage/build_x86_64/Release/DullahanHelper (GPU).app" "$stage/lib/release/DullahanHelper (GPU).app"
+        cp -R "$stage/build_x86_64/Release/DullahanHelper (Renderer).app" "$stage/lib/release/DullahanHelper (Renderer).app"
+        cp -R "$stage/build_x86_64/Release/DullahanHelper (Plugin).app" "$stage/lib/release/DullahanHelper (Plugin).app"
 
         lipo -create "$stage/build_x86_64/Release/DullahanHelper.app/Contents/MacOS/DullahanHelper" "$stage/build_arm64/Release/DullahanHelper.app/Contents/MacOS/DullahanHelper" -output "$stage/lib/release/DullahanHelper.app/Contents/MacOS/DullahanHelper"
-        lipo -create "$stage/build_x86_64/Release/DullahanHelper.app/Contents/MacOS/DullahanHelper" "$stage/build_arm64/Release/DullahanHelper.app/Contents/MacOS/DullahanHelper" -output "$stage/lib/release/DullahanHelper (GPU).app/Contents/MacOS/DullahanHelper (GPU)"
-        lipo -create "$stage/build_x86_64/Release/DullahanHelper.app/Contents/MacOS/DullahanHelper" "$stage/build_arm64/Release/DullahanHelper.app/Contents/MacOS/DullahanHelper" -output "$stage/lib/release/DullahanHelper (Plugin).app/Contents/MacOS/DullahanHelper (Plugin)"
-        lipo -create "$stage/build_x86_64/Release/DullahanHelper.app/Contents/MacOS/DullahanHelper" "$stage/build_arm64/Release/DullahanHelper.app/Contents/MacOS/DullahanHelper" -output "$stage/lib/release/DullahanHelper (Renderer).app/Contents/MacOS/DullahanHelper (Renderer)"
+        lipo -create "$stage/build_x86_64/Release/DullahanHelper (Alerts).app/Contents/MacOS/DullahanHelper (Alerts)" "$stage/build_arm64/Release/DullahanHelper (Alerts).app/Contents/MacOS/DullahanHelper (Alerts)" -output "$stage/lib/release/DullahanHelper (Alerts).app/Contents/MacOS/DullahanHelper (Alerts)"
+        lipo -create "$stage/build_x86_64/Release/DullahanHelper (GPU).app/Contents/MacOS/DullahanHelper (GPU)" "$stage/build_arm64/Release/DullahanHelper (GPU).app/Contents/MacOS/DullahanHelper (GPU)" -output "$stage/lib/release/DullahanHelper (GPU).app/Contents/MacOS/DullahanHelper (GPU)"
+        lipo -create "$stage/build_x86_64/Release/DullahanHelper (Plugin).app/Contents/MacOS/DullahanHelper (Plugin)" "$stage/build_arm64/Release/DullahanHelper (Plugin).app/Contents/MacOS/DullahanHelper (Plugin)" -output "$stage/lib/release/DullahanHelper (Plugin).app/Contents/MacOS/DullahanHelper (Plugin)"
+        lipo -create "$stage/build_x86_64/Release/DullahanHelper (Renderer).app/Contents/MacOS/DullahanHelper (Renderer)" "$stage/build_arm64/Release/DullahanHelper (Renderer).app/Contents/MacOS/DullahanHelper (Renderer)" -output "$stage/lib/release/DullahanHelper (Renderer).app/Contents/MacOS/DullahanHelper (Renderer)"
 
         lipo -create -output "$stage/lib/release/libcef_dll_wrapper.a" "$cef_no_wrapper_build_dir/x86_64/libcef_dll_wrapper/Release/libcef_dll_wrapper.a" "$cef_no_wrapper_build_dir/arm64/libcef_dll_wrapper/Release/libcef_dll_wrapper.a"
 
@@ -223,12 +224,12 @@ case "$AUTOBUILD_PLATFORM" in
 
         lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Chromium Embedded Framework" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Chromium Embedded Framework" -output "$stage/lib/release/Chromium Embedded Framework.framework/Chromium Embedded Framework"
 
+        lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Libraries/libcef_sandbox.dylib" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Libraries/libcef_sandbox.dylib" -output "$stage/lib/release/Chromium Embedded Framework.framework/Libraries/libcef_sandbox.dylib"
         lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Libraries/libEGL.dylib" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Libraries/libEGL.dylib" -output "$stage/lib/release/Chromium Embedded Framework.framework/Libraries/libEGL.dylib"
         lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib" -output "$stage/lib/release/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib"
         lipo -create "$cef_no_wrapper_dir/x86_64/Release/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib" "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib" -output "$stage/lib/release/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib"
 
         # Set up snapshot blobs for universal
-        rm "$stage/lib/release/Chromium Embedded Framework.framework/Resources/snapshot_blob.bin"
         cp -R "$cef_no_wrapper_dir/arm64/Release/Chromium Embedded Framework.framework/Resources/v8_context_snapshot.arm64.bin" "$stage/lib/release/Chromium Embedded Framework.framework/Resources/"
 
         cp "$top/CEF_LICENSE.txt" "$stage/LICENSES"
@@ -299,7 +300,7 @@ case "$AUTOBUILD_PLATFORM" in
 
 		cp $stage/build/dullahan_host ${stage}/bin/release/
 
-        cp -a ${cef_no_wrapper_dir}/Release/*.json ${stage}/bin/release/
+		cp -a ${cef_no_wrapper_dir}/Release/*.json ${stage}/bin/release/
 		cp -a ${cef_no_wrapper_dir}/Release/*.bin ${stage}/bin/release/
 		cp -a ${cef_no_wrapper_dir}/Release/chrome-sandbox ${stage}/bin/release/
 

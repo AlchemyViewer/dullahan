@@ -210,6 +210,16 @@ void dullahan::setPageZoom(const double zoom_val)
     mImpl->setPageZoom(zoom_val);
 }
 
+bool dullahan::editCanUndo()
+{
+	return mImpl->editCanUndo();
+}
+
+bool dullahan::editCanRedo()
+{
+	return mImpl->editCanRedo();
+}
+
 bool dullahan::editCanCopy()
 {
     return mImpl->editCanCopy();
@@ -225,6 +235,26 @@ bool dullahan::editCanPaste()
     return mImpl->editCanPaste();
 }
 
+bool dullahan::editCanDelete()
+{
+	return mImpl->editCanDelete();
+}
+
+bool dullahan::editCanSelectAll()
+{
+	return mImpl->editCanSelectAll();
+}
+
+void dullahan::editUndo()
+{
+	mImpl->editUndo();
+}
+
+void dullahan::editRedo()
+{
+	mImpl->editRedo();
+}
+
 void dullahan::editCopy()
 {
     mImpl->editCopy();
@@ -238,6 +268,21 @@ void dullahan::editCut()
 void dullahan::editPaste()
 {
     mImpl->editPaste();
+}
+
+void dullahan::editDelete()
+{
+	mImpl->editDelete();
+}
+
+void dullahan::editSelectAll()
+{
+	mImpl->editSelectAll();
+}
+
+void dullahan::viewSource()
+{
+	mImpl->viewSource();
 }
 
 void dullahan::showDevTools()
@@ -334,7 +379,7 @@ void dullahan::setOnLoadEndCallback(std::function<void(int status, const std::st
     mImpl->getCallbackManager()->setOnLoadEndCallback(callback);
 }
 
-void dullahan::setOnLoadErrorCallback(std::function<void(int status, const std::string error_text)> callback)
+void dullahan::setOnLoadErrorCallback(std::function<void(int status, const std::string error_text, const std::string error_url)> callback)
 {
     mImpl->getCallbackManager()->setOnLoadErrorCallback(callback);
 }
