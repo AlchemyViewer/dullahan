@@ -24,6 +24,8 @@
     THE SOFTWARE.
 */
 
+#define NOMINMAX
+
 #include "cef_browser.h"
 #include "wrapper/cef_helpers.h"
 
@@ -34,6 +36,8 @@
 #include "dullahan_impl.h"
 
 #include <algorithm>
+#include <chrono>
+#include <thread>
 
 dullahan_browser_client::dullahan_browser_client(dullahan_impl* parent,
     scoped_refptr<dullahan_render_handler> render_handler) :
@@ -56,17 +60,18 @@ CefRefPtr<CefRenderHandler> dullahan_browser_client::GetRenderHandler()
 
 // CefLifeSpanHandler override
 bool dullahan_browser_client::OnBeforePopup(CefRefPtr<CefBrowser> browser,
-        CefRefPtr<CefFrame> frame,
-        const CefString& target_url,
-        const CefString& target_frame_name,
-        CefLifeSpanHandler::WindowOpenDisposition target_disposition,
-        bool user_gesture,
-        const CefPopupFeatures& popupFeatures,
-        CefWindowInfo& windowInfo,
-        CefRefPtr<CefClient>& client,
-        CefBrowserSettings& settings,
-        CefRefPtr<CefDictionaryValue>& extra_info,
-        bool* no_javascript_access)
+                             CefRefPtr<CefFrame> frame,
+                             int popup_id,
+                             const CefString& target_url,
+                             const CefString& target_frame_name,
+                             CefLifeSpanHandler::WindowOpenDisposition target_disposition,
+                             bool user_gesture,
+                             const CefPopupFeatures& popupFeatures,
+                             CefWindowInfo& windowInfo,
+                             CefRefPtr<CefClient>& client,
+                             CefBrowserSettings& settings,
+                             CefRefPtr<CefDictionaryValue>& extra_info,
+                             bool* no_javascript_access)
 {
     CEF_REQUIRE_UI_THREAD();
 
@@ -125,13 +130,7 @@ void dullahan_browser_client::OnBeforeClose(CefRefPtr<CefBrowser> browser)
         for (int i = 0; i < num_extra_cef_work_loops; ++i)
         {
             CefDoMessageLoopWork();
-#ifdef WIN32
-            Sleep(sleep_time_between_calls);
-#elif __APPLE__
-            sleep(sleep_time_between_calls);
-#elif __linux__
-            sleep(sleep_time_between_calls);
-#endif
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time_between_calls));
         }
 
         mParent->getCallbackManager()->onRequestExit();
@@ -262,7 +261,7 @@ void dullahan_browser_client::OnLoadError(CefRefPtr<CefBrowser> browser,
 
     if (frame->IsMain())
     {
-        mParent->getCallbackManager()->onLoadError(errorCode, std::string(errorText));
+        mParent->getCallbackManager()->onLoadError(errorCode, std::string(errorText), std::string(failedUrl) );
     }
 }
 
@@ -332,10 +331,10 @@ bool dullahan_browser_client::GetAuthCredentials(CefRefPtr<CefBrowser> browser, 
 }
 
 // CefDownloadHandler overrides
-void dullahan_browser_client::OnBeforeDownload(CefRefPtr<CefBrowser> browser,
-        CefRefPtr<CefDownloadItem> download_item,
-        const CefString& suggested_name,
-        CefRefPtr<CefBeforeDownloadCallback> callback)
+bool dullahan_browser_client::OnBeforeDownload(CefRefPtr<CefBrowser> browser,
+    CefRefPtr<CefDownloadItem> download_item,
+    const CefString& suggested_name,
+    CefRefPtr<CefBeforeDownloadCallback> callback)
 {
     CEF_REQUIRE_UI_THREAD();
 
@@ -343,6 +342,8 @@ void dullahan_browser_client::OnBeforeDownload(CefRefPtr<CefBrowser> browser,
     // intercepts that and does the right thing.
     bool show_file_dialog = true;
     callback->Continue(suggested_name, show_file_dialog);
+
+    return true;
 }
 
 void dullahan_browser_client::OnDownloadUpdated(CefRefPtr<CefBrowser> browser,
@@ -363,11 +364,13 @@ void dullahan_browser_client::OnDownloadUpdated(CefRefPtr<CefBrowser> browser,
 
 // CefDialogHandler orerrides
 bool dullahan_browser_client::OnFileDialog(CefRefPtr<CefBrowser> browser,
-        FileDialogMode mode,
-        const CefString& title,
-        const CefString& default_file_path,
-        const std::vector<CefString>& accept_filters,
-        CefRefPtr<CefFileDialogCallback> callback)
+    FileDialogMode mode,
+    const CefString& title,
+    const CefString& default_file_path,
+    const std::vector<CefString>& accept_filters,
+    const std::vector<CefString>& accept_extensions,
+    const std::vector<CefString>& accept_descriptions,
+    CefRefPtr<CefFileDialogCallback> callback)
 {
     CEF_REQUIRE_UI_THREAD();
 
