@@ -118,7 +118,7 @@ case "$AUTOBUILD_PLATFORM" in
         cp "$top/LICENSE.txt" "$stage/LICENSES"
 
         # populate version_file (after CMake runs)
-        cl /EHsc \
+        cl -EHsc \
             -Fo"$(cygpath -w "$stage/version.obj")" \
             -Fe"$(cygpath -w "$stage/version.exe")" \
             -I "$(cygpath -w "$cef_no_wrapper_dir/include/")"  \
@@ -292,7 +292,7 @@ case "$AUTOBUILD_PLATFORM" in
 		mkdir -p "$stage/lib/release/"
 		mkdir -p "$stage/include/cef"
 		mkdir -p "$stage/resources"
-		 
+
 		cp $stage/build/libdullahan.a ${stage}/lib/release/
 		cp ${cef_no_wrapper_build_dir}/libcef_dll_wrapper/libcef_dll_wrapper.a $stage/lib/release
 

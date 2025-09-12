@@ -391,6 +391,7 @@ if (BUILD_EXAMPLES)
         ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}/imgui_tables.cpp
         ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}/imgui_widgets.cpp
         examples/opengl-example/README.md
+        src/win/compatibility.manifest
     )
 
     target_include_directories(
