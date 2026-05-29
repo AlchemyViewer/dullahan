@@ -62,6 +62,8 @@ class openglExample
         void mouseMoveCallback(float xpos, float ypos);
         void mouseScrollCallback(float xoffset, float yoffset);
         void keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Keymod mod, Uint16 raw, bool down);
+        // handle clipboard/edit/navigation accelerators; returns true if consumed
+        bool handleKeyboardShortcut(SDL_Keycode key, SDL_Keymod mod);
         void textInputEvent(const char* text);
         void initUI();
         void updateUI();

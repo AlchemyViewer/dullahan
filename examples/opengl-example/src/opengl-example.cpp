@@ -297,6 +297,52 @@ void openglExample::setBrowserFocus(bool focused)
     mDullahan->setFocus(focused);
 }
 
+// Handle the standard clipboard / edit / navigation keyboard shortcuts by
+// driving dullahan's edit + navigation API, returning true if the key was
+// consumed. This mirrors how a browser's UI layer (not the page) owns these
+// accelerators. The accelerator modifier is Cmd on macOS and Ctrl elsewhere.
+bool openglExample::handleKeyboardShortcut(SDL_Keycode key, SDL_Keymod mod)
+{
+#if defined(__APPLE__)
+    bool accel = (mod & SDL_KMOD_GUI) != 0;
+#else
+    bool accel = (mod & SDL_KMOD_CTRL) != 0;
+#endif
+    if (! accel)
+    {
+        return false;
+    }
+
+    bool shift = (mod & SDL_KMOD_SHIFT) != 0;
+
+    switch (key)
+    {
+        case SDLK_C: mDullahan->editCopy();      return true;
+        case SDLK_X: mDullahan->editCut();       return true;
+        case SDLK_V: mDullahan->editPaste();     return true;
+        case SDLK_A: mDullahan->editSelectAll(); return true;
+        case SDLK_Z:
+            // Cmd/Ctrl+Shift+Z is the conventional Redo (alongside Ctrl+Y)
+            if (shift)
+            {
+                mDullahan->editRedo();
+            }
+            else
+            {
+                mDullahan->editUndo();
+            }
+            return true;
+        case SDLK_Y: mDullahan->editRedo(); return true;
+        case SDLK_R: mDullahan->reload(shift); return true;   // Shift = ignore cache
+        case SDLK_LEFTBRACKET:  mDullahan->goBack();    return true;   // Cmd+[ back
+        case SDLK_RIGHTBRACKET: mDullahan->goForward(); return true;   // Cmd+] forward
+        default:
+            break;
+    }
+
+    return false;
+}
+
 // Forward keyboard key presses to the browser. Dullahan provides an SDL
 // keyboard path (nativeKeyboardEventSDL2) that maps SDL keycodes/modifiers
 // to the native values CEF requires - this is what makes keyboard input
@@ -326,6 +372,17 @@ void openglExample::keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Ke
         {
             return;
         }
+
+        // Intercept the standard edit / navigation shortcuts and drive them
+        // through dullahan's edit + navigation API, the way a browser's command
+        // layer (rather than the page) handles them. When one matches we consume
+        // it: we neither forward the key-down nor record it, so no key-up is sent
+        // for it either (the modifier key itself is still forwarded normally).
+        if (handleKeyboardShortcut(key, mod))
+        {
+            return;
+        }
+
         mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_DOWN, (uint32_t)key, mods, keypad, native_scan_code);
         mKeysSentToPage.insert(key);
     }
@@ -708,6 +765,42 @@ void openglExample::updateUI()
             }
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu("Edit"))
+        {
+            // Reflect CEF's notion of what's currently possible so disabled
+            // items grey out like a real browser's Edit menu.
+            if (ImGui::MenuItem("Undo", "Ctrl+Z", false, mDullahan->editCanUndo()))
+            {
+                mDullahan->editUndo();
+            }
+            if (ImGui::MenuItem("Redo", "Ctrl+Shift+Z", false, mDullahan->editCanRedo()))
+            {
+                mDullahan->editRedo();
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Cut", "Ctrl+X", false, mDullahan->editCanCut()))
+            {
+                mDullahan->editCut();
+            }
+            if (ImGui::MenuItem("Copy", "Ctrl+C", false, mDullahan->editCanCopy()))
+            {
+                mDullahan->editCopy();
+            }
+            if (ImGui::MenuItem("Paste", "Ctrl+V", false, mDullahan->editCanPaste()))
+            {
+                mDullahan->editPaste();
+            }
+            if (ImGui::MenuItem("Delete", nullptr, false, mDullahan->editCanDelete()))
+            {
+                mDullahan->editDelete();
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Select All", "Ctrl+A", false, mDullahan->editCanSelectAll()))
+            {
+                mDullahan->editSelectAll();
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Help"))
         {
             if (ImGui::MenuItem("About"))
@@ -750,12 +843,60 @@ void openglExample::updateUI()
         ImGui::PopStyleVar();
     }
 
-    // Write freeform URL entry bar
-    ImGui::SetNextItemWidth(main_viewport->Size.x);
+    // Navigation toolbar (back / forward / reload-or-stop) followed by the URL
+    // entry field, laid out on one row like a browser's address bar.
     ImGui::SetCursorPos(ImVec2(0, 0));
+
+    bool is_loading = mDullahan->isLoading();
+    bool can_back = mDullahan->canGoBack();
+    bool can_forward = mDullahan->canGoForward();
+
+    // helper to render a button that can be disabled (greyed + non-interactive)
+    auto toolbar_button = [](const char* label, bool enabled) -> bool
+    {
+        if (! enabled)
+        {
+            ImGui::BeginDisabled();
+        }
+        bool clicked = ImGui::Button(label);
+        if (! enabled)
+        {
+            ImGui::EndDisabled();
+        }
+        ImGui::SameLine();
+        return clicked;
+    };
+
+    if (toolbar_button("<##back", can_back))
+    {
+        mDullahan->goBack();
+    }
+    if (toolbar_button(">##forward", can_forward))
+    {
+        mDullahan->goForward();
+    }
+    // While a page is loading this acts as a Stop button, otherwise Reload -
+    // exactly like the combined reload/stop control in a browser.
+    if (is_loading)
+    {
+        if (toolbar_button("x##stop", true))
+        {
+            mDullahan->stop();
+        }
+    }
+    else
+    {
+        if (toolbar_button("R##reload", true))
+        {
+            mDullahan->reload(false);
+        }
+    }
+
+    // URL field fills the rest of the row
     ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(64, 64, 100, 255));
+    ImGui::SetNextItemWidth(main_viewport->Size.x - ImGui::GetCursorPosX());
     static char url_buffer[4096];
-    if (ImGui::InputTextWithHint("UrlInout", "Enter a URL",
+    if (ImGui::InputTextWithHint("##UrlInput", "Enter a URL",
                                  url_buffer,
                                  IM_ARRAYSIZE(url_buffer),
                                  ImGuiInputTextFlags_EnterReturnsTrue))
