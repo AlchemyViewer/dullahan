@@ -203,9 +203,26 @@ std::map< uint32_t, uint32_t > mSDL2_to_Win
     , { 0x400000e4, 0x11 }
     , { 0x400000e5, 0x10 }
     , { 0x400000e6, 0x12 }
+    // Printable punctuation/symbol keys. Their SDL keycode (the unshifted ASCII
+    // value) does NOT equal the Windows VK_OEM_* code the DOM keydown needs, so
+    // map them explicitly. Without this, a keydown for e.g. '/', '.', '-' or ';'
+    // carries a bogus keyCode and JS-driven fields mishandle it - even though
+    // the character still inserts via the CHAR event. (Letters fold to their VK
+    // below; digits and space already equal their VK so need no entry.)
+    , { 0x27, 0xde }   // '  VK_OEM_7
+    , { 0x2c, 0xbc }   // ,  VK_OEM_COMMA
+    , { 0x2d, 0xbd }   // -  VK_OEM_MINUS
+    , { 0x2e, 0xbe }   // .  VK_OEM_PERIOD
+    , { 0x2f, 0xbf }   // /  VK_OEM_2
+    , { 0x3b, 0xba }   // ;  VK_OEM_1
+    , { 0x3d, 0xbb }   // =  VK_OEM_PLUS
+    , { 0x5b, 0xdb }   // [  VK_OEM_4
+    , { 0x5c, 0xdc }   // \  VK_OEM_5
+    , { 0x5d, 0xdd }   // ]  VK_OEM_6
+    , { 0x60, 0xc0 }   // `  VK_OEM_3
 };
 
-void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input)
+void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input, uint32_t native_scan_code)
 {
     if (!mBrowser || !mBrowser->GetHost())
     {
@@ -259,6 +276,15 @@ void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint3
 
     event.windows_key_code = key_data;
 
+    // The platform-dependent scancode (SDL_KeyboardEvent.raw) is the Mac virtual
+    // keycode on macOS and the X11/evdev keycode on Linux. CEF/Chromium uses
+    // native_key_code to build the DOM event's code and key properties; if it's
+    // left 0 the platform layer drops the key event before it becomes a DOM
+    // keydown on macOS/Linux (no keydown fires at all, even though CHAR text
+    // still inserts via the separate character path). windows_key_code above
+    // only feeds the legacy DOM keyCode and is not enough on its own.
+    event.native_key_code = (int)native_scan_code;
+
     if (key_event == dullahan::KE_KEY_DOWN || key_event == dullahan::KE_KEY_REPEAT)
     {
         if (key_event == dullahan::KE_KEY_REPEAT)
@@ -270,7 +296,6 @@ void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint3
     }
     else if (key_event == dullahan::KE_KEY_UP)
     {
-        event.native_key_code |= 0xC0000000;
         event.type = KEYEVENT_KEYUP;
         mBrowser->GetHost()->SendKeyEvent(event);
     }

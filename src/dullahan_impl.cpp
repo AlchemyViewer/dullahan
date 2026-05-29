@@ -64,14 +64,12 @@ dullahan_impl::dullahan_impl() :
     mCallbackManager(new dullahan_callback_manager),
     mViewWidth(0),
     mViewHeight(0),
-    mSystemFlashEnabled(false),
     mMediaStreamEnabled(false),
     mBeginFrameScheduling(false),
     mForceWaveAudio(false),
     mDisableGPU(true),
     mDisableWebSecurity(false),
     mAllowFileAccessFromFiles(false),
-    mDisableNetworkService(false),
     mUseMockKeyChain(false),
     mAutoPlayWithoutGesture(false),
     mFakeUIForMediaStream(false),
@@ -102,11 +100,6 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
             command_line->AppendSwitch("enable-media-stream");
         }
 
-        if (mSystemFlashEnabled == true)
-        {
-            command_line->AppendSwitch("enable-system-flash");
-        }
-
         if (mBeginFrameScheduling == true)
         {
             command_line->AppendSwitch("enable-begin-frame-scheduling");
@@ -131,11 +124,6 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
         if (mDisableWebSecurity)
         {
             command_line->AppendSwitch("disable-web-security");
-        }
-
-        if (mDisableNetworkService)
-        {
-            command_line->AppendSwitchWithValue("disable-features", "NetworkService");
         }
 
         if (mUseMockKeyChain)
@@ -331,9 +319,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
                                  accept_language_list.size(), &settings.accept_language_list);
     }
 
-    // enable/disable use of system Flash
-    mSystemFlashEnabled = user_settings.plugins_enabled & user_settings.flash_enabled;
-
     // enable/disable media stream (web cams etc.)
     // IMPORTANT: there is no "Use Your WebCam OK?" dialog so enable this at your peril
     mMediaStreamEnabled = user_settings.media_stream_enabled;
@@ -361,12 +346,6 @@ bool dullahan_impl::initCEF(dullahan::dullahan_settings& user_settings)
     // this flag allows access to local files - it used to be set via a member of CefBrowserSettings
     // but now must be set via the command line so we capture it here
     mAllowFileAccessFromFiles = user_settings.file_access_from_file_urls;
-
-    // this flag if set, adds a command line parameter that disables "network service" and
-    // is like adding --disable-features=NetworkService. This appears to be required after
-    // Chrome 75 to disable the "Chrome wants access to passwords" dialog on macOS that
-    // started to appear. May change later.
-    mDisableNetworkService = user_settings.disable_network_service;
 
     // this flag if set, adds a command line parameter that replaces disable_network_service
     // flag to bypass the dialog on macOS that appears in Chrome 79+ to disable the
@@ -638,11 +617,11 @@ void dullahan_impl::navigate(const std::string url)
     }
 }
 
-void dullahan_impl::setFocus()
+void dullahan_impl::setFocus(bool focused)
 {
     if (mBrowser.get() && mBrowser->GetHost())
     {
-        mBrowser->GetHost()->SetFocus(true);
+        mBrowser->GetHost()->SetFocus(focused);
     }
 }
 

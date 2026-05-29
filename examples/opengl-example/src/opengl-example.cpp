@@ -41,6 +41,13 @@
 
 #include "dullahan.h"
 
+#if LL_DARWIN
+// Defined in opengl-example-mac.mm. Makes the running NSApplication satisfy
+// CEF's CefAppProtocol (-isHandlingSendEvent / -setHandlingSendEvent:) so
+// CefDoMessageLoopWork() doesn't crash against SDL's NSApplication subclass.
+void dullahanInstallCefAppCompat();
+#endif
+
 namespace
 {
     // Map an SDL mouse button to the matching dullahan button.
@@ -277,24 +284,24 @@ void openglExample::mouseScrollCallback(float xoffset, float yoffset)
 
 // Give (or remove) browser host input focus. CEF needs host focus to display a
 // caret and route key events to the focused DOM element, so without this typing
-// into a page text field does nothing. Idempotent.
+// into a page text field does nothing.
+//
+// Deliberately NOT guarded against a cached "already focused" state: with
+// offscreen rendering the very first SetFocus(true) (e.g. from the window
+// gaining focus at startup) can land before the page has loaded and fail to
+// latch onto the document, after which CEF never re-focuses on its own. So we
+// re-assert focus on every page click - SetFocus is idempotent and this is what
+// the viewer's media plugin does too.
 void openglExample::setBrowserFocus(bool focused)
 {
-    if (focused != mBrowserFocused)
-    {
-        mBrowserFocused = focused;
-        if (focused)
-        {
-            mDullahan->setFocus();
-        }
-    }
+    mDullahan->setFocus(focused);
 }
 
 // Forward keyboard key presses to the browser. Dullahan provides an SDL
 // keyboard path (nativeKeyboardEventSDL2) that maps SDL keycodes/modifiers
 // to the native values CEF requires - this is what makes keyboard input
 // work across all platforms (the old GLFW example could not do this).
-void openglExample::keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Keymod mod, bool down)
+void openglExample::keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Keymod mod, Uint16 raw, bool down)
 {
     // keep the ESC key to exit as well as File -> Quit since it's useful
     if (down && key == SDLK_ESCAPE)
@@ -307,6 +314,9 @@ void openglExample::keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Ke
     // the native keyboard path takes the raw SDL modifier mask - dullahan does
     // the SDL -> CEF EVENTFLAG translation internally.
     uint32_t mods = (uint32_t)mod;
+    // SDL_KeyboardEvent.raw is the platform scancode CEF needs as native_key_code
+    // to build the DOM event; without it key events are dropped on macOS/Linux.
+    uint32_t native_scan_code = (uint32_t)raw;
 
     if (down)
     {
@@ -316,7 +326,7 @@ void openglExample::keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Ke
         {
             return;
         }
-        mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_DOWN, (uint32_t)key, mods, keypad);
+        mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_DOWN, (uint32_t)key, mods, keypad, native_scan_code);
         mKeysSentToPage.insert(key);
     }
     else
@@ -326,7 +336,7 @@ void openglExample::keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Ke
         // stuck thinking the key is still held.
         if (mKeysSentToPage.erase(key) > 0)
         {
-            mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_UP, (uint32_t)key, mods, keypad);
+            mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_UP, (uint32_t)key, mods, keypad, native_scan_code);
         }
     }
 }
@@ -364,6 +374,12 @@ bool openglExample::init()
         std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
         exit(EXIT_FAILURE);
     }
+
+#if LL_DARWIN
+    // SDL has now created its NSApplication; make it CEF-compatible before CEF's
+    // message pump (CefDoMessageLoopWork) ever queries -isHandlingSendEvent.
+    dullahanInstallCefAppCompat();
+#endif
 
     // Request a legacy OpenGL 2.1 compatibility context to match the
     // fixed-function pipeline used to draw the textured quad.
@@ -860,11 +876,11 @@ bool openglExample::run()
                     break;
 
                 case SDL_EVENT_KEY_DOWN:
-                    keyboardEvent(event.key.key, event.key.scancode, event.key.mod, true);
+                    keyboardEvent(event.key.key, event.key.scancode, event.key.mod, event.key.raw, true);
                     break;
 
                 case SDL_EVENT_KEY_UP:
-                    keyboardEvent(event.key.key, event.key.scancode, event.key.mod, false);
+                    keyboardEvent(event.key.key, event.key.scancode, event.key.mod, event.key.raw, false);
                     break;
 
                 case SDL_EVENT_TEXT_INPUT:
@@ -885,6 +901,18 @@ bool openglExample::run()
         draw();
 
         updateUI();
+
+        // ImGui's SDL3 backend calls SDL_StopTextInput() whenever no ImGui
+        // widget wants text (it manages text input for its own InputText
+        // widgets). That also stops SDL delivering SDL_EVENT_TEXT_INPUT, which
+        // is how we feed typed characters to the page - so after letting ImGui
+        // run, re-assert text input for the page whenever ImGui isn't using it.
+        // Without this, typing into a page text field silently does nothing once
+        // an ImGui text field has been focused and then left.
+        if (! ImGui::GetIO().WantTextInput && ! SDL_TextInputActive(mWindow))
+        {
+            SDL_StartTextInput(mWindow);
+        }
 
         SDL_GL_SwapWindow(mWindow);
     }

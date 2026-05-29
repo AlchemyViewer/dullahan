@@ -61,7 +61,7 @@ class openglExample
         void mouseButtonCallback(Uint8 sdl_button, bool down, int clicks);
         void mouseMoveCallback(float xpos, float ypos);
         void mouseScrollCallback(float xoffset, float yoffset);
-        void keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Keymod mod, bool down);
+        void keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Keymod mod, Uint16 raw, bool down);
         void textInputEvent(const char* text);
         void initUI();
         void updateUI();
@@ -114,17 +114,13 @@ class openglExample
         // single mouse-leave to the page when it moves off.
         bool mWasInsideQuad = false;
 
-        // whether the browser currently holds host input focus; CEF needs this
-        // to show a caret and route keys to the focused DOM element.
-        bool mBrowserFocused = false;
-
         // SDL keycodes whose key-down we forwarded to the page. We always send
         // the matching key-up (even if ImGui later grabs the keyboard) so the
         // page never sees a stuck key.
         std::set<SDL_Keycode> mKeysSentToPage;
 
-        // give the browser host input focus (idempotent); called on first click
-        // and on window focus-gained.
+        // give (or remove) browser host input focus; called on a page click and
+        // on window focus gained/lost. Re-asserts every time (see definition).
         void setBrowserFocus(bool focused);
 
         // returns true if the cursor is over the quad; tx/ty are always set to

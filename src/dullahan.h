@@ -277,13 +277,18 @@ class dullahan
         void nativeKeyboardEventOSX(dullahan::EKeyEvent event_type, uint32_t event_modifiers, uint32_t event_keycode,
                                     uint32_t event_chars, uint32_t event_umodchars, bool event_isrepeat);
         void nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t native_scan_code, uint32_t native_virtual_key, uint32_t native_modifiers);
-        void nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input);
+        // native_scan_code is the platform-dependent scancode (SDL_KeyboardEvent.raw):
+        // the Mac virtual keycode on macOS, the X11/evdev keycode on Linux. CEF
+        // needs it as CefKeyEvent.native_key_code to build the DOM event's
+        // code/key - without it (0) the key event is dropped before it reaches
+        // the page on macOS/Linux. Unused for KE_KEY_CHAR.
+        void nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input, uint32_t native_scan_code = 0);
 
         // navigate to a URL
         void navigate(const std::string url);
 
         // give focus to virtual browser window
-        void setFocus();
+        void setFocus(bool focused);
 
         // set the page zoom
         void setPageZoom(const double zoom_val);

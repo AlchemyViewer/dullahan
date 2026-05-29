@@ -185,9 +185,9 @@ void dullahan::nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t nativ
 {
     mImpl->nativeKeyboardEvent(key_event, native_scan_code, native_virtual_key, native_modifiers);
 }
-void dullahan::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input)
+void dullahan::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input, uint32_t native_scan_code)
 {
-    mImpl->nativeKeyboardEventSDL2(key_event, key_data, key_modifiers, keypad_input);
+    mImpl->nativeKeyboardEventSDL2(key_event, key_data, key_modifiers, keypad_input, native_scan_code);
 }
 
 void dullahan::navigate(const std::string url)
@@ -198,9 +198,9 @@ void dullahan::navigate(const std::string url)
     }
 }
 
-void dullahan::setFocus()
+void dullahan::setFocus(bool focused)
 {
-    mImpl->setFocus();
+    mImpl->setFocus(focused);
 }
 
 void dullahan::setPageZoom(const double zoom_val)

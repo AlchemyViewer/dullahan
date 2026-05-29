@@ -244,11 +244,18 @@ if (BUILD_EXAMPLES)
     ###############################################################################
     # OpenGL example application
 
+    set(OPENGL_EXAMPLE_PLATFORM_SRC "")
+    if(DARWIN)
+        # CEF/NSApplication compatibility shim (CefAppProtocol selectors)
+        set(OPENGL_EXAMPLE_PLATFORM_SRC examples/opengl-example/src/opengl-example-mac.mm)
+    endif()
+
     add_executable(
         opengl-example
         MACOSX_BUNDLE
         examples/opengl-example/src/opengl-example.cpp
         examples/opengl-example/src/opengl-example.h
+        ${OPENGL_EXAMPLE_PLATFORM_SRC}
         ${THIRD-PARTY-PREFIX}/${GLAD_FOLDER}/src/glad.c
         examples/opengl-example/README.md
         src/win/compatibility.manifest
