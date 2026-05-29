@@ -189,6 +189,19 @@ void openglExample::mouseButtonCallback(Uint8 sdl_button, bool down, int clicks)
         mCaptureSdlButton = sdl_button;
         mCaptureTexX = tx;
         mCaptureTexY = ty;
+
+        // A right-click on the page raises our own context menu next frame. We
+        // still forward the click above so CEF's OnBeforeContextMenu runs and
+        // refreshes the edit-state the menu queries. Anchor the menu at the
+        // current cursor position.
+        if (sdl_button == SDL_BUTTON_RIGHT)
+        {
+            float fxpos;
+            float fypos;
+            SDL_GetMouseState(&fxpos, &fypos);
+            mContextMenuPos = ImVec2(fxpos, fypos);
+            mShowContextMenu = true;
+        }
     }
 }
 
@@ -767,35 +780,41 @@ void openglExample::updateUI()
         }
         if (ImGui::BeginMenu("Edit"))
         {
-            // Reflect CEF's notion of what's currently possible so disabled
-            // items grey out like a real browser's Edit menu.
-            if (ImGui::MenuItem("Undo", "Ctrl+Z", false, mDullahan->editCanUndo()))
+            // NOTE: the items are left always-enabled rather than driven by the
+            // editCan*() queries. With offscreen rendering CEF only reports
+            // edit-state (can undo/copy/paste/...) via OnBeforeContextMenu,
+            // i.e. on right-click, so those queries would be stale (and read
+            // "nothing allowed" until the first right-click) - making the menu
+            // greyed out almost all the time. Each edit command simply no-ops
+            // in CEF when it isn't applicable, so unconditionally enabling them
+            // matches the keyboard shortcuts and behaves correctly.
+            if (ImGui::MenuItem("Undo", "Ctrl+Z"))
             {
                 mDullahan->editUndo();
             }
-            if (ImGui::MenuItem("Redo", "Ctrl+Shift+Z", false, mDullahan->editCanRedo()))
+            if (ImGui::MenuItem("Redo", "Ctrl+Shift+Z"))
             {
                 mDullahan->editRedo();
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Cut", "Ctrl+X", false, mDullahan->editCanCut()))
+            if (ImGui::MenuItem("Cut", "Ctrl+X"))
             {
                 mDullahan->editCut();
             }
-            if (ImGui::MenuItem("Copy", "Ctrl+C", false, mDullahan->editCanCopy()))
+            if (ImGui::MenuItem("Copy", "Ctrl+C"))
             {
                 mDullahan->editCopy();
             }
-            if (ImGui::MenuItem("Paste", "Ctrl+V", false, mDullahan->editCanPaste()))
+            if (ImGui::MenuItem("Paste", "Ctrl+V"))
             {
                 mDullahan->editPaste();
             }
-            if (ImGui::MenuItem("Delete", nullptr, false, mDullahan->editCanDelete()))
+            if (ImGui::MenuItem("Delete"))
             {
                 mDullahan->editDelete();
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Select All", "Ctrl+A", false, mDullahan->editCanSelectAll()))
+            if (ImGui::MenuItem("Select All", "Ctrl+A"))
             {
                 mDullahan->editSelectAll();
             }
@@ -936,8 +955,80 @@ void openglExample::updateUI()
 
     ImGui::End();
 
+    drawContextMenu();
+
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+}
+
+// Right-click context menu for the page. Opened from mouseButtonCallback() on a
+// right-click (which also runs through CEF, so OnBeforeContextMenu has just
+// refreshed the edit-state these items query). Unlike the always-enabled Edit
+// menu in the menu bar, here the editCan*() state is fresh because the
+// triggering right-click produced it, so we can grey out inapplicable items.
+void openglExample::drawContextMenu()
+{
+    const char* popup_id = "##pageContextMenu";
+
+    if (mShowContextMenu)
+    {
+        ImGui::SetNextWindowPos(mContextMenuPos);
+        ImGui::OpenPopup(popup_id);
+        mShowContextMenu = false;
+    }
+
+    if (ImGui::BeginPopup(popup_id))
+    {
+        if (ImGui::MenuItem("Back", nullptr, false, mDullahan->canGoBack()))
+        {
+            mDullahan->goBack();
+        }
+        if (ImGui::MenuItem("Forward", nullptr, false, mDullahan->canGoForward()))
+        {
+            mDullahan->goForward();
+        }
+        if (ImGui::MenuItem("Reload"))
+        {
+            mDullahan->reload(false);
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, mDullahan->editCanUndo()))
+        {
+            mDullahan->editUndo();
+        }
+        if (ImGui::MenuItem("Redo", "Ctrl+Shift+Z", false, mDullahan->editCanRedo()))
+        {
+            mDullahan->editRedo();
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Cut", "Ctrl+X", false, mDullahan->editCanCut()))
+        {
+            mDullahan->editCut();
+        }
+        if (ImGui::MenuItem("Copy", "Ctrl+C", false, mDullahan->editCanCopy()))
+        {
+            mDullahan->editCopy();
+        }
+        if (ImGui::MenuItem("Paste", "Ctrl+V", false, mDullahan->editCanPaste()))
+        {
+            mDullahan->editPaste();
+        }
+        if (ImGui::MenuItem("Delete", nullptr, false, mDullahan->editCanDelete()))
+        {
+            mDullahan->editDelete();
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Select All", "Ctrl+A", false, mDullahan->editCanSelectAll()))
+        {
+            mDullahan->editSelectAll();
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("View Source"))
+        {
+            mDullahan->viewSource();
+        }
+        ImGui::EndPopup();
+    }
 }
 
 void openglExample::resetUI()

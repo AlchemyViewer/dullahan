@@ -121,6 +121,15 @@ class openglExample
         // page never sees a stuck key.
         std::set<SDL_Keycode> mKeysSentToPage;
 
+        // set when the user right-clicks the page: triggers an ImGui context
+        // menu the next frame, positioned here (in window pixels). The page's
+        // right-click also runs through CEF so its OnBeforeContextMenu refreshes
+        // the edit-state the menu reads.
+        bool mShowContextMenu = false;
+        ImVec2 mContextMenuPos;
+        // builds/handles the right-click context menu (edit + navigation items)
+        void drawContextMenu();
+
         // give (or remove) browser host input focus; called on a page click and
         // on window focus gained/lost. Re-asserts every time (see definition).
         void setBrowserFocus(bool focused);
