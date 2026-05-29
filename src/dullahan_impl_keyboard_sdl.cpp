@@ -37,6 +37,64 @@ enum SDL_KeyPad
     SDLK_KP_EQUALS      = 272
 };
 
+// SDL modifier-key bit values (SDL2 and SDL3 share these). Reproduced here so
+// dullahan core needn't take a compile-time dependency on the SDL headers.
+enum SDL_Keymod
+{
+    KMOD_NONE = 0x0000,
+    KMOD_LSHIFT = 0x0001,
+    KMOD_RSHIFT = 0x0002,
+    KMOD_LCTRL = 0x0040,
+    KMOD_RCTRL = 0x0080,
+    KMOD_LALT = 0x0100,
+    KMOD_RALT = 0x0200,
+    KMOD_LGUI = 0x0400,
+    KMOD_RGUI = 0x0800,
+    KMOD_NUM = 0x1000,
+    KMOD_CAPS = 0x2000,
+    KMOD_MODE = 0x4000,
+    KMOD_RESERVED = 0x8000
+};
+
+// Translate a raw SDL keyboard modifier mask (SDL_Keymod) into the EVENTFLAG_*
+// bitmask CefKeyEvent expects. Done here, in the one place that talks to CEF,
+// so every caller can pass the SDL modifiers straight through. The raw SDL bit
+// positions do NOT line up with EVENTFLAG_* (e.g. SDL ctrl is 0x40, which is
+// EVENTFLAG_RIGHT_MOUSE_BUTTON), so the flags must be rebuilt, not reused.
+static uint32_t sdlModifiersToCef(uint32_t key_modifiers)
+{
+    uint32_t flags = 0;
+    if (key_modifiers & (KMOD_LSHIFT | KMOD_RSHIFT))
+    {
+        flags |= EVENTFLAG_SHIFT_DOWN;
+    }
+    if (key_modifiers & (KMOD_LCTRL | KMOD_RCTRL))
+    {
+        flags |= EVENTFLAG_CONTROL_DOWN;
+    }
+    if (key_modifiers & (KMOD_LALT | KMOD_RALT))
+    {
+        flags |= EVENTFLAG_ALT_DOWN;
+    }
+    if (key_modifiers & (KMOD_LGUI | KMOD_RGUI))
+    {
+        flags |= EVENTFLAG_COMMAND_DOWN;
+    }
+    if (key_modifiers & KMOD_MODE)
+    {
+        flags |= EVENTFLAG_ALTGR_DOWN;
+    }
+    if (key_modifiers & KMOD_CAPS)
+    {
+        flags |= EVENTFLAG_CAPS_LOCK_ON;
+    }
+    if (key_modifiers & KMOD_NUM)
+    {
+        flags |= EVENTFLAG_NUM_LOCK_ON;
+    }
+    return flags;
+}
+
 void dullahan_impl::nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t native_scan_code, uint32_t native_virtual_key, uint32_t native_modifiers)
 {
     if (!mBrowser || !mBrowser->GetHost())
@@ -58,9 +116,9 @@ void dullahan_impl::nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t 
     event.native_key_code = native_virtual_key;
     event.character = native_virtual_key;
     event.unmodified_character = native_virtual_key;
-    event.modifiers = native_modifiers;
+    event.modifiers = sdlModifiersToCef(native_modifiers);
 
-    if (native_modifiers & EVENTFLAG_ALT_DOWN)
+    if (event.modifiers & EVENTFLAG_ALT_DOWN)
     {
         event.modifiers &= ~EVENTFLAG_ALT_DOWN;
         event.is_system_key = true;
@@ -95,23 +153,6 @@ void dullahan_impl::nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t 
 }
 
 // SDL2
-
-enum SDL_Keymod
-{
-    KMOD_NONE = 0x0000,
-    KMOD_LSHIFT = 0x0001,
-    KMOD_RSHIFT = 0x0002,
-    KMOD_LCTRL = 0x0040,
-    KMOD_RCTRL = 0x0080,
-    KMOD_LALT = 0x0100,
-    KMOD_RALT = 0x0200,
-    KMOD_LGUI = 0x0400,
-    KMOD_RGUI = 0x0800,
-    KMOD_NUM = 0x1000,
-    KMOD_CAPS = 0x2000,
-    KMOD_MODE = 0x4000,
-    KMOD_RESERVED = 0x8000
-};
 
 std::map< uint32_t, uint32_t > mSDL2_to_Win
 {
@@ -164,21 +205,6 @@ std::map< uint32_t, uint32_t > mSDL2_to_Win
     , { 0x400000e6, 0x12 }
 };
 
-bool isAltPressed(uint32_t mod)
-{
-    return 0 != (mod & (KMOD_LALT | KMOD_RALT));
-}
-
-bool isShiftPressed(uint32_t mod)
-{
-    return 0 != (mod & (KMOD_LSHIFT | KMOD_RSHIFT));
-}
-
-bool isControlPressed(uint32_t mod)
-{
-    return 0 != (mod & (KMOD_LCTRL | KMOD_RCTRL));
-}
-
 void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input)
 {
     if (!mBrowser || !mBrowser->GetHost())
@@ -188,55 +214,64 @@ void dullahan_impl::nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint3
 
     CefKeyEvent event = {};
     event.is_system_key = false;
-    event.modifiers = key_modifiers;
+    event.modifiers = sdlModifiersToCef(key_modifiers);
 
     if (keypad_input)
     {
         event.modifiers |= EVENTFLAG_IS_KEY_PAD;
     }
 
-    if (isAltPressed(key_modifiers))
+    // an Alt-modified key is a system key to CEF; the ALT flag itself is dropped
+    // so it isn't double-counted as a regular modifier.
+    if (event.modifiers & EVENTFLAG_ALT_DOWN)
     {
         event.modifiers &= ~EVENTFLAG_ALT_DOWN;
         event.is_system_key = true;
     }
 
-    if (isShiftPressed(key_modifiers))
+    if (key_event == dullahan::KE_KEY_CHAR)
     {
-        event.modifiers &= ~EVENTFLAG_SHIFT_DOWN;
+        // CHAR events deliver the typed character. Control/Alt must not be set
+        // or Chromium discards the character as part of a shortcut rather than
+        // inserting it; the actual text already reflects Shift, so clear that
+        // too (a CHAR with SHIFT_DOWN is treated as another accelerator).
+        event.modifiers &= ~(EVENTFLAG_SHIFT_DOWN | EVENTFLAG_CONTROL_DOWN);
+        event.is_system_key = false;
+        event.character = key_data;
+        event.unmodified_character = key_data;
+        event.type = KEYEVENT_CHAR;
+        mBrowser->GetHost()->SendKeyEvent(event);
+        return;
     }
 
-    if (isControlPressed(key_modifiers))
-    {
-        event.modifiers &= ~EVENTFLAG_CONTROL_DOWN;
-    }
-
+    // RAWKEYDOWN / KEYUP want a Windows virtual-key code. Map the special keys
+    // via the table, then fold lowercase ASCII letters to their VK (uppercase)
+    // value so accelerators like Ctrl+A/C/V match.
     auto itr = mSDL2_to_Win.find(key_data);
     if (itr != mSDL2_to_Win.end())
     {
         key_data = itr->second;
     }
-
-    if (key_event == dullahan::KE_KEY_CHAR)
+    else if (key_data >= 'a' && key_data <= 'z')
     {
-        event.character = key_data;
-        event.type = KEYEVENT_CHAR;
+        key_data -= 0x20;
+    }
+
+    event.windows_key_code = key_data;
+
+    if (key_event == dullahan::KE_KEY_DOWN || key_event == dullahan::KE_KEY_REPEAT)
+    {
+        if (key_event == dullahan::KE_KEY_REPEAT)
+        {
+            event.modifiers |= EVENTFLAG_IS_REPEAT;
+        }
+        event.type = KEYEVENT_RAWKEYDOWN;
         mBrowser->GetHost()->SendKeyEvent(event);
     }
-    else
+    else if (key_event == dullahan::KE_KEY_UP)
     {
-        event.windows_key_code = key_data;
-
-        if (key_event == dullahan::KE_KEY_DOWN)
-        {
-            event.type = KEYEVENT_RAWKEYDOWN;
-            mBrowser->GetHost()->SendKeyEvent(event);
-        }
-        else if (key_event == dullahan::KE_KEY_UP)
-        {
-            event.native_key_code |= 0xC0000000;
-            event.type = KEYEVENT_KEYUP;
-            mBrowser->GetHost()->SendKeyEvent(event);
-        }
+        event.native_key_code |= 0xC0000000;
+        event.type = KEYEVENT_KEYUP;
+        mBrowser->GetHost()->SendKeyEvent(event);
     }
 }

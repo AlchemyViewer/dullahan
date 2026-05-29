@@ -57,11 +57,12 @@ namespace
         return dullahan::MB_MOUSE_BUTTON_LEFT;
     }
 
-    // Translate the live SDL keyboard modifier state into dullahan's modifier
-    // bitmask so modified clicks/drags/scrolls reach the page correctly.
-    uint32_t currentDullahanModifiers()
+    // Translate an SDL keyboard modifier mask into dullahan's portable modifier
+    // bitmask (KM_MODIFIER_*). dullahan maps these to the EVENTFLAG_* values CEF
+    // needs, so we must not pass raw SDL keymod bits (their positions alias
+    // unrelated CEF flags).
+    uint32_t sdlKeymodToDullahan(SDL_Keymod km)
     {
-        SDL_Keymod km = SDL_GetModState();
         uint32_t mods = 0;
         if (km & SDL_KMOD_SHIFT)
         {
@@ -80,6 +81,12 @@ namespace
             mods |= dullahan::KM_MODIFIER_META;
         }
         return mods;
+    }
+
+    // The live modifier state, for events (mouse) that don't carry their own.
+    uint32_t currentDullahanModifiers()
+    {
+        return sdlKeymodToDullahan(SDL_GetModState());
     }
 }
 
@@ -268,6 +275,21 @@ void openglExample::mouseScrollCallback(float xoffset, float yoffset)
     }
 }
 
+// Give (or remove) browser host input focus. CEF needs host focus to display a
+// caret and route key events to the focused DOM element, so without this typing
+// into a page text field does nothing. Idempotent.
+void openglExample::setBrowserFocus(bool focused)
+{
+    if (focused != mBrowserFocused)
+    {
+        mBrowserFocused = focused;
+        if (focused)
+        {
+            mDullahan->setFocus();
+        }
+    }
+}
+
 // Forward keyboard key presses to the browser. Dullahan provides an SDL
 // keyboard path (nativeKeyboardEventSDL2) that maps SDL keycodes/modifiers
 // to the native values CEF requires - this is what makes keyboard input
@@ -281,28 +303,44 @@ void openglExample::keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Ke
         return;
     }
 
-    // don't forward keystrokes to the page while ImGui owns the keyboard
-    // (e.g. when typing a URL into the address bar)
-    if (ImGui::GetIO().WantCaptureKeyboard)
-    {
-        return;
-    }
-
     bool keypad = (scancode >= SDL_SCANCODE_KP_DIVIDE && scancode <= SDL_SCANCODE_KP_PERIOD);
-    dullahan::EKeyEvent key_event = down ? dullahan::KE_KEY_DOWN : dullahan::KE_KEY_UP;
-    mDullahan->nativeKeyboardEventSDL2(key_event, (uint32_t)key, (uint32_t)mod, keypad);
+    // the native keyboard path takes the raw SDL modifier mask - dullahan does
+    // the SDL -> CEF EVENTFLAG translation internally.
+    uint32_t mods = (uint32_t)mod;
+
+    if (down)
+    {
+        // don't forward key-downs to the page while ImGui owns the keyboard
+        // (e.g. when typing a URL into the address bar)
+        if (ImGui::GetIO().WantCaptureKeyboard)
+        {
+            return;
+        }
+        mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_DOWN, (uint32_t)key, mods, keypad);
+        mKeysSentToPage.insert(key);
+    }
+    else
+    {
+        // always deliver the key-up for any key whose down we sent to the page,
+        // even if ImGui has since grabbed the keyboard, so the page can't get
+        // stuck thinking the key is still held.
+        if (mKeysSentToPage.erase(key) > 0)
+        {
+            mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_UP, (uint32_t)key, mods, keypad);
+        }
+    }
 }
 
 // Forward typed characters to the browser. SDL delivers text as UTF-8 so
-// decode each codepoint and send it on as a character event.
+// decode each codepoint and send it on as a character event. CHAR events carry
+// no modifiers - dullahan strips ctrl/shift from CHAR anyway (they would make
+// Chromium treat the character as a shortcut and drop it).
 void openglExample::textInputEvent(const char* text)
 {
     if (ImGui::GetIO().WantCaptureKeyboard)
     {
         return;
     }
-
-    uint32_t mod = (uint32_t)SDL_GetModState();
 
     for (const unsigned char* p = (const unsigned char*)text; p && *p; )
     {
@@ -315,7 +353,7 @@ void openglExample::textInputEvent(const char* text)
         {
             cp = (cp << 6) | (*p++ & 0x3F);
         }
-        mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_CHAR, cp, mod, false);
+        mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_CHAR, cp, 0, false);
     }
 }
 
@@ -771,9 +809,20 @@ bool openglExample::run()
                     resizeCallback(event.window.data1, event.window.data2);
                     break;
 
+                case SDL_EVENT_WINDOW_FOCUS_GAINED:
+                    setBrowserFocus(true);
+                    break;
+
+                case SDL_EVENT_WINDOW_FOCUS_LOST:
+                    setBrowserFocus(false);
+                    break;
+
                 case SDL_EVENT_MOUSE_BUTTON_DOWN:
                     if (! ImGui::GetIO().WantCaptureMouse)
                     {
+                        // a click on the page gives the browser host focus so it
+                        // shows a caret and accepts keyboard input
+                        setBrowserFocus(true);
                         mouseButtonCallback(event.button.button, true, event.button.clicks);
                     }
                     break;

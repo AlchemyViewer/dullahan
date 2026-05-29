@@ -33,6 +33,7 @@
 #pragma once
 
 #include <string>
+#include <set>
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -112,6 +113,19 @@ class openglExample
         // tracks whether the cursor was last over the quad, so we can send a
         // single mouse-leave to the page when it moves off.
         bool mWasInsideQuad = false;
+
+        // whether the browser currently holds host input focus; CEF needs this
+        // to show a caret and route keys to the focused DOM element.
+        bool mBrowserFocused = false;
+
+        // SDL keycodes whose key-down we forwarded to the page. We always send
+        // the matching key-up (even if ImGui later grabs the keyboard) so the
+        // page never sees a stuck key.
+        std::set<SDL_Keycode> mKeysSentToPage;
+
+        // give the browser host input focus (idempotent); called on first click
+        // and on window focus-gained.
+        void setBrowserFocus(bool focused);
 
         // returns true if the cursor is over the quad; tx/ty are always set to
         // the clamped texture coordinate of the ray/plane hit when one exists.
