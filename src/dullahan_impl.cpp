@@ -468,12 +468,16 @@ void dullahan_impl::getSize(int& width, int& height)
 
 void dullahan_impl::setSize(int width, int height)
 {
-    DLNOUT("dullahan_impl::setSize() << width << " << width << " x " << height);
+    DLNOUT("dullahan_impl::setSize() " << width << " x " << height);
+
+    // Always record the requested size, even before the browser exists, so
+    // getSize() is correct and a size set early isn't silently dropped. Only
+    // notify the host of a resize once it's actually available.
+    mViewWidth = width;
+    mViewHeight = height;
 
     if (mBrowser.get() && mBrowser->GetHost())
     {
-        mViewWidth = width;
-        mViewHeight = height;
         mBrowser->GetHost()->WasResized();
     }
 }
@@ -521,7 +525,8 @@ bool dullahan_impl::canGoBack()
         return mBrowser->CanGoBack();
     }
 
-    return true;
+    // no browser yet => there is no history to go back to
+    return false;
 }
 
 void dullahan_impl::goBack()
@@ -539,7 +544,8 @@ bool dullahan_impl::canGoForward()
         return mBrowser->CanGoForward();
     }
 
-    return true;
+    // no browser yet => there is no forward history
+    return false;
 }
 
 void dullahan_impl::goForward()
@@ -557,7 +563,8 @@ bool dullahan_impl::isLoading()
         return mBrowser->IsLoading();
     }
 
-    return true;
+    // no browser yet => nothing is loading
+    return false;
 }
 
 void dullahan_impl::reload(const bool ignore_cache)
@@ -617,109 +624,151 @@ void dullahan_impl::setFocus(bool focused)
 }
 
 
+// The editCan*() queries report CEF's edit-state flags as captured by the
+// browser client's OnBeforeContextMenu (CM_EDITFLAG_*). CEF provides no
+// synchronous "can I do this?" call for offscreen rendering, so this reflects
+// the state as of the last context-menu event (e.g. a right-click); it can be
+// stale between such events. Before any context menu has fired mEditStateFlags
+// is 0, so these return false.
 bool dullahan_impl::editCanUndo()
 {
-    // TODO: ask CEF if we can do this
-    return true;
+    return (mEditStateFlags & CM_EDITFLAG_CAN_UNDO) != 0;
 }
 
 bool dullahan_impl::editCanRedo()
 {
-    // TODO: ask CEF if we can do this
-    return true;
+    return (mEditStateFlags & CM_EDITFLAG_CAN_REDO) != 0;
 }
 
 bool dullahan_impl::editCanCopy()
 {
-    // TODO: ask CEF if we can do this
-    return true;
+    return (mEditStateFlags & CM_EDITFLAG_CAN_COPY) != 0;
 }
 
 bool dullahan_impl::editCanCut()
 {
-    // TODO: ask CEF if we can do this
-    return true;
+    return (mEditStateFlags & CM_EDITFLAG_CAN_CUT) != 0;
 }
 
 bool dullahan_impl::editCanPaste()
 {
-    // TODO: ask CEF if we can do this
-    return true;
+    return (mEditStateFlags & CM_EDITFLAG_CAN_PASTE) != 0;
 }
 
 bool dullahan_impl::editCanDelete()
 {
-    // TODO: ask CEF if we can do this
-    return true;
+    return (mEditStateFlags & CM_EDITFLAG_CAN_DELETE) != 0;
 }
 
 bool dullahan_impl::editCanSelectAll()
 {
-    // TODO: ask CEF if we can do this
-    return true;
+    return (mEditStateFlags & CM_EDITFLAG_CAN_SELECT_ALL) != 0;
 }
 
+// GetFocusedFrame() can return null (e.g. between page loads, or when no frame
+// holds focus), so each of these captures it once and null-checks before use
+// rather than calling through the result of GetFocusedFrame() directly.
 void dullahan_impl::editUndo()
 {
-    if (mBrowser.get() && mBrowser->GetFocusedFrame())
+    if (!mBrowser.get())
     {
-        mBrowser->GetFocusedFrame()->Undo();
+        return;
+    }
+    CefRefPtr<CefFrame> frame = mBrowser->GetFocusedFrame();
+    if (frame)
+    {
+        frame->Undo();
     }
 }
 
 void dullahan_impl::editRedo()
 {
-    if (mBrowser.get() && mBrowser->GetFocusedFrame())
+    if (!mBrowser.get())
     {
-        mBrowser->GetFocusedFrame()->Redo();
+        return;
+    }
+    CefRefPtr<CefFrame> frame = mBrowser->GetFocusedFrame();
+    if (frame)
+    {
+        frame->Redo();
     }
 }
 
 void dullahan_impl::editCopy()
 {
-    if (mBrowser.get() && mBrowser->GetFocusedFrame())
+    if (!mBrowser.get())
     {
-        mBrowser->GetFocusedFrame()->Copy();
+        return;
+    }
+    CefRefPtr<CefFrame> frame = mBrowser->GetFocusedFrame();
+    if (frame)
+    {
+        frame->Copy();
     }
 }
 
 void dullahan_impl::editCut()
 {
-    if (mBrowser.get() && mBrowser->GetFocusedFrame())
+    if (!mBrowser.get())
     {
-        mBrowser->GetFocusedFrame()->Cut();
+        return;
+    }
+    CefRefPtr<CefFrame> frame = mBrowser->GetFocusedFrame();
+    if (frame)
+    {
+        frame->Cut();
     }
 }
 
 void dullahan_impl::editPaste()
 {
-    if (mBrowser.get() && mBrowser->GetFocusedFrame())
+    if (!mBrowser.get())
     {
-        mBrowser->GetFocusedFrame()->Paste();
+        return;
+    }
+    CefRefPtr<CefFrame> frame = mBrowser->GetFocusedFrame();
+    if (frame)
+    {
+        frame->Paste();
     }
 }
 
 void dullahan_impl::editDelete()
 {
-    if (mBrowser.get() && mBrowser->GetFocusedFrame())
+    if (!mBrowser.get())
     {
-        mBrowser->GetFocusedFrame()->Delete();
+        return;
+    }
+    CefRefPtr<CefFrame> frame = mBrowser->GetFocusedFrame();
+    if (frame)
+    {
+        frame->Delete();
     }
 }
 
 void dullahan_impl::editSelectAll()
 {
-    if (mBrowser.get() && mBrowser->GetFocusedFrame())
+    if (!mBrowser.get())
     {
-        mBrowser->GetFocusedFrame()->SelectAll();
+        return;
+    }
+    CefRefPtr<CefFrame> frame = mBrowser->GetFocusedFrame();
+    if (frame)
+    {
+        frame->SelectAll();
     }
 }
 
 void dullahan_impl::viewSource()
 {
-    if (mBrowser.get() && mBrowser->GetFocusedFrame())
+    if (!mBrowser.get())
     {
-        mBrowser->GetFocusedFrame()->ViewSource();
+        return;
+    }
+    CefRefPtr<CefFrame> frame = mBrowser->GetFocusedFrame();
+    if (frame)
+    {
+        frame->ViewSource();
     }
 }
 
@@ -814,7 +863,12 @@ void dullahan_impl::printToPDF(const std::string path)
 
 void dullahan_impl::OnPdfPrintFinished(const CefString& path, bool ok)
 {
-    getCallbackManager()->onPdfPrintFinished(path, ok);
+    // this can fire asynchronously, potentially during teardown after the
+    // callback manager has been destroyed, so guard against that
+    if (mCallbackManager)
+    {
+        mCallbackManager->onPdfPrintFinished(path, ok);
+    }
 }
 
 bool dullahan_impl::setCookie(const std::string url, const std::string name,
@@ -882,22 +936,33 @@ bool dullahan_impl::setCookie(const std::string url, const std::string name,
     return false;
 }
 
-// TODO: This does not pass back the vector of strings correctly.
-//       Plus we should consider adding a cookie class and use that to represent a cookie vs. just name as a string
+// TODO: consider adding a cookie class and use that to represent a cookie
+//       vs. just the name as a string
 const std::vector<std::string> dullahan_impl::getAllCookies()
 {
+    // VisitAllCookies() is asynchronous: CEF calls Visit() on the IO thread for
+    // each cookie and destroys the visitor when it's done. The visitor writes
+    // into the caller's vector (by reference) and signals a waitable event from
+    // its destructor so we can block until enumeration has actually completed -
+    // the previous version both copied the vector by value (so results were
+    // discarded) and returned before the async visit had run.
     class CookieVisitor : public CefCookieVisitor
     {
         public:
-            CookieVisitor(std::vector<std::string> cookies) :
-                mCookies(cookies)
+            CookieVisitor(std::vector<std::string>& cookies, CefRefPtr<CefWaitableEvent> event) :
+                mCookies(cookies),
+                mEvent(event)
             {
+            }
+
+            ~CookieVisitor() override
+            {
+                mEvent->Signal();
             }
 
             bool Visit(const CefCookie& cookie, int count, int total, bool& deleteCookie) override
             {
                 const std::string name = std::string(CefString(&cookie.name));
-                const std::string value = std::string(CefString(&cookie.value));
 
                 mCookies.push_back(name);
                 deleteCookie = false;
@@ -905,7 +970,8 @@ const std::vector<std::string> dullahan_impl::getAllCookies()
             }
 
         private:
-            std::vector<std::string> mCookies;
+            std::vector<std::string>& mCookies;
+            CefRefPtr<CefWaitableEvent> mEvent;
 
             IMPLEMENT_REFCOUNTING(CookieVisitor);
     };
@@ -922,13 +988,19 @@ const std::vector<std::string> dullahan_impl::getAllCookies()
     }
     if (manager)
     {
-        manager->VisitAllCookies(new CookieVisitor(cookies));
-        manager->FlushStore(nullptr);
+        bool automatically_reset = true;
+        bool initially_signaled = false;
+        CefRefPtr<CefWaitableEvent> event = CefWaitableEvent::CreateWaitableEvent(automatically_reset, initially_signaled);
 
-        return cookies;
+        if (manager->VisitAllCookies(new CookieVisitor(cookies, event)))
+        {
+            // only wait if the visit was actually accepted, otherwise Visit()
+            // (and the destructor that signals) never runs and we'd hang
+            event->Wait();
+        }
     }
 
-    return std::vector<std::string>();
+    return cookies;
 }
 
 void dullahan_impl::deleteAllCookies()
@@ -1034,6 +1106,7 @@ bool dullahan_impl::executeJavaScript(const std::string cmd)
     if (mBrowser.get() && mBrowser->GetMainFrame())
     {
         mBrowser->GetMainFrame()->ExecuteJavaScript(cmd, std::string(), 0);
+        return true;
     }
     return false;
 }

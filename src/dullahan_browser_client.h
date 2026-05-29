@@ -42,6 +42,7 @@ class dullahan_browser_client :
     public CefRequestHandler,
     public CefDownloadHandler,
     public CefDialogHandler,
+    public CefContextMenuHandler,
     public CefJSDialogHandler
 {
     public:
@@ -148,6 +149,19 @@ class dullahan_browser_client :
                             const std::vector<CefString>& accept_extensions,
                             const std::vector<CefString>& accept_descriptions,
                             CefRefPtr<CefFileDialogCallback> callback) override;
+
+        // CefContextMenuHandler overrides
+        CefRefPtr<CefContextMenuHandler> GetContextMenuHandler() override
+        {
+            return this;
+        }
+        // We don't show a context menu, but this fires on right-click with the
+        // current edit-state flags (can undo/copy/paste/...), which is the only
+        // way to learn that state for OSR. Cache it and suppress the menu.
+        void OnBeforeContextMenu(CefRefPtr<CefBrowser> browser,
+                                 CefRefPtr<CefFrame> frame,
+                                 CefRefPtr<CefContextMenuParams> params,
+                                 CefRefPtr<CefMenuModel> model) override;
 
         // CefJSDialogHandler overrides
         CefRefPtr<CefJSDialogHandler> GetJSDialogHandler() override

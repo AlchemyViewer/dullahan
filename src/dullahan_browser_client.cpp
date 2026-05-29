@@ -96,6 +96,23 @@ bool dullahan_browser_client::OnBeforePopup(CefRefPtr<CefBrowser> browser,
     return true;
 }
 
+// CefContextMenuHandler override
+void dullahan_browser_client::OnBeforeContextMenu(CefRefPtr<CefBrowser> browser,
+        CefRefPtr<CefFrame> frame,
+        CefRefPtr<CefContextMenuParams> params,
+        CefRefPtr<CefMenuModel> model)
+{
+    CEF_REQUIRE_UI_THREAD();
+
+    // We don't display a context menu, but the params carry CEF's current
+    // edit-state flags (can undo/redo/cut/copy/paste/delete/select-all) - the
+    // only OSR-friendly way to learn that state. Cache it for editCan*() then
+    // clear the model so no menu is shown.
+    mParent->setEditStateFlags(params->GetEditStateFlags());
+
+    model->Clear();
+}
+
 // CefLifeSpanHandler override
 void dullahan_browser_client::OnAfterCreated(CefRefPtr<CefBrowser> browser)
 {

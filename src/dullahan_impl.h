@@ -137,6 +137,10 @@ class dullahan_impl :
         // apply the flip-mouse-Y setting to a y coordinate (no-op when disabled)
         int flipMouseY(int y);
 
+        // Cache of CEF's edit-state flags (CM_EDITFLAG_*), updated from the
+        // browser client's OnBeforeContextMenu - the editCan*() queries read it.
+        void setEditStateFlags(uint32_t flags) { mEditStateFlags = flags; }
+
         void requestPageZoom();
 
         void setCustomSchemes(std::vector<std::string> custom_schemes);
@@ -183,6 +187,9 @@ class dullahan_impl :
         // bitmask of EVENTFLAG_*_MOUSE_BUTTON for buttons currently held down,
         // tracked across mouseButton() calls so move/wheel events report drag state
         uint32_t mHeldButtons = 0;
+        // last-seen CEF edit-state flags (CM_EDITFLAG_*) from OnBeforeContextMenu;
+        // read by the editCan*() queries
+        uint32_t mEditStateFlags = 0;
         double mRequestedPageZoom;
         const int mViewDepth = 4;
         std::vector<std::string> mCustomSchemes;
