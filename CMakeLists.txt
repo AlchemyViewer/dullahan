@@ -8,9 +8,9 @@ include(CEFPlugin)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set(BUILD_EXAMPLES TRUE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(BUILD_EXAMPLES FALSE)
+    set(BUILD_EXAMPLES TRUE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(BUILD_EXAMPLES FALSE)
+    set(BUILD_EXAMPLES TRUE)
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
@@ -228,14 +228,17 @@ endif()
 if (BUILD_EXAMPLES)
     set (THIRD-PARTY-PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/examples/opengl-example/third-party)
     set (GLAD_FOLDER "glad-0.1.36")
-    set (IMGUI_FOLDER "imgui-1.92.2")
-    if(WINDOWS)
-        set (GLFW_FOLDER "glfw-3.4.bin.WIN64")
-        set (GLFW_LIB_PATH "lib-vc2022/glfw3.lib")
-    elseif(DARWIN)
-        set (GLFW_FOLDER "glfw-3.4.bin.MACOS")
-        set (GLFW_LIB_PATH "lib-universal/libglfw3.a")
-        set (GLFW_FRAMEWORKS "-framework Cocoa" "-framework OpenGL" "-framework IOKit")
+
+    # Dear ImGui (with the SDL3 + OpenGL2 backends) is provided by vcpkg.
+    find_package(imgui CONFIG REQUIRED)
+
+    # SDL3 provides cross-platform windowing, input and GL context creation.
+    # ll::SDL3 is defined by the parent build (indra/cmake/SDL3.cmake) before this
+    # submodule is added; fall back to the vcpkg package for standalone builds.
+    if(NOT TARGET ll::SDL3)
+        find_package(SDL3 CONFIG REQUIRED)
+        add_library(ll::SDL3 INTERFACE IMPORTED)
+        target_link_libraries(ll::SDL3 INTERFACE SDL3::SDL3)
     endif()
 
     ###############################################################################
@@ -247,12 +250,6 @@ if (BUILD_EXAMPLES)
         examples/opengl-example/src/opengl-example.cpp
         examples/opengl-example/src/opengl-example.h
         ${THIRD-PARTY-PREFIX}/${GLAD_FOLDER}/src/glad.c
-        ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}/imgui.cpp
-        ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}/imgui_draw.cpp
-        ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}/imgui_impl_glfw.cpp
-        ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}/imgui_impl_opengl2.cpp
-        ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}/imgui_tables.cpp
-        ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}/imgui_widgets.cpp
         examples/opengl-example/README.md
         src/win/compatibility.manifest
     )
@@ -262,8 +259,6 @@ if (BUILD_EXAMPLES)
         PUBLIC
         src
         ${THIRD-PARTY-PREFIX}/${GLAD_FOLDER}/include
-        ${THIRD-PARTY-PREFIX}/${GLFW_FOLDER}/include
-        ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}
     )
 
     if(WINDOWS)
@@ -271,24 +266,21 @@ if (BUILD_EXAMPLES)
             opengl-example
             dullahan
             opengl32
-            comctl32
             ${CEF_LIBRARY}
             ${CEF_DLL_LIBRARY}
-            ${THIRD-PARTY-PREFIX}/${GLFW_FOLDER}/${GLFW_LIB_PATH}
+            ll::SDL3
+            imgui::imgui
         )
         SET_PROPERTY(DIRECTORY PROPERTY VS_STARTUP_PROJECT "opengl-example")
     elseif(DARWIN)
         find_library (OPENGL_FRAMEWORK OpenGL)
-        find_library (COCOA_FRAMEWORK Cocoa)
-        find_library (IO_FRAMEWORK IOKit)
         target_link_libraries (
             opengl-example
             dullahan
             ${CEF_DLL_LIBRARY}
-            ${THIRD-PARTY-PREFIX}/${GLFW_FOLDER}/${GLFW_LIB_PATH}
+            ll::SDL3
+            imgui::imgui
             ${OPENGL_FRAMEWORK}
-            ${COCOA_FRAMEWORK}
-            ${IO_FRAMEWORK}
         )
         set(EXAMPLE_FRAMEWORKS
             "${CEF_FRAMEWORK_DIR}"
@@ -298,9 +290,21 @@ if (BUILD_EXAMPLES)
             dullahan_host_renderer
             dullahan_host_plugin
         )
-    set_target_properties(opengl-example
-                        PROPERTIES
-                        XCODE_EMBED_FRAMEWORKS "${EXAMPLE_FRAMEWORKS}")
+        set_target_properties(opengl-example
+                            PROPERTIES
+                            XCODE_EMBED_FRAMEWORKS "${EXAMPLE_FRAMEWORKS}")
+    elseif(LINUX)
+        find_package(OpenGL REQUIRED)
+        target_link_libraries (
+            opengl-example
+            dullahan
+            ${CEF_DLL_LIBRARY}
+            ${CEF_LIBRARY}
+            ll::SDL3
+            imgui::imgui
+            OpenGL::GL
+            ${CMAKE_DL_LIBS}
+        )
     endif()
 
     add_dependencies(opengl-example dullahan)

@@ -3,7 +3,9 @@
 
             Cross platform example for illustration and standalone testing
             of Dullahan features. Renders output to an OpenGL 2.1 quad
-            and allows interaction using the mouse.
+            and allows interaction using the mouse and keyboard.
+
+            Windowing, input and the OpenGL context are provided by SDL3.
 
     @author Callum Prentice - August 2025
 
@@ -30,21 +32,19 @@
 
 #pragma once
 
+#include <string>
+
 #include "imgui.h"
-#include "imgui_impl_glfw.h"
+#include "imgui_impl_sdl3.h"
 #include "imgui_impl_opengl2.h"
 
-#include <glad/glad.h>
-#if defined(WIN32)
-#undef APIENTRY
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
-#include <commctrl.h>
+#if LL_DARWIN
+#include <OpenGL/gl.h>
 #else
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
+#include <glad/glad.h>
 #endif
+
+#include <SDL3/SDL.h>
 
 class dullahan;
 
@@ -55,12 +55,13 @@ class openglExample
 
         bool init();
         bool run();
-        bool draw(int* tx, int* ty);
+        void draw();
         void resizeCallback(int width, int height);
-        void handleKeyEvent(int key, int scancode, int action, int mods);
-        void mouseButtonCallback(int button, int action, int mods);
-        void mouseMoveCallback(double xpos, double ypos);
-        void mouseScrollCallback(double xoffset, double yoffset);
+        void mouseButtonCallback(Uint8 sdl_button, bool down);
+        void mouseMoveCallback(float xpos, float ypos);
+        void mouseScrollCallback(float xoffset, float yoffset);
+        void keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Keymod mod, bool down);
+        void textInputEvent(const char* text);
         void initUI();
         void updateUI();
         void resetUI();
@@ -71,7 +72,9 @@ class openglExample
         void onRequestExitCallback();
 
     private:
-        GLFWwindow* mWindow;
+        SDL_Window* mWindow;
+        SDL_GLContext mGLContext;
+        bool mShouldClose;
         const std::string mWindowTitle = "Dullahan OpenGL Example";
         const std::string mAppVersionStr = "0.0.1";
         const std::string mHomeUrl = "https://sl-viewer-media-system.s3.amazonaws.com/bookmarks/index.html";
@@ -95,39 +98,9 @@ class openglExample
         const double mZoomMin = -20.0;
         const double mZoomMax = -0.2;
         GLuint mTextureId;
-        GLuint mPickTextureId;
-        const int mTextureWidth = 1024;
-        const int mTextureHeight = 1024;
-        const int mTextureDepth = 4;
-        const unsigned char mBrowserId = 23;
+        int mTextureWidth = 1024;
+        int mTextureHeight = 1024;
         dullahan* mDullahan;
 
-        void generatePickTexture();
-        bool mousePosToTexturePos(int* tx, int* ty);
-
-        // Used to marshall static function callbacks to a instance of the app class
-        static void resizeCallbackStatic(GLFWwindow* window, int width, int height)
-        {
-            static_cast<openglExample*>(glfwGetWindowUserPointer(window))->resizeCallback(width, height);
-        }
-        static void keyCallbackStatic(GLFWwindow* window, int key, int scancode, int action, int mods)
-        {
-            static_cast<openglExample*>(glfwGetWindowUserPointer(window))->handleKeyEvent(key, scancode, action, mods);
-        }
-        static void mouseButtonCallbackStatic(GLFWwindow* window, int button, int action, int mods)
-        {
-            static_cast<openglExample*>(glfwGetWindowUserPointer(window))->mouseButtonCallback(button, action, mods);
-        }
-        static void mouseMoveCallbackStatic(GLFWwindow* window, double xpos, double ypos)
-        {
-            static_cast<openglExample*>(glfwGetWindowUserPointer(window))->mouseMoveCallback(xpos, ypos);
-        }
-        static void mouseScrollCallbackStatic(GLFWwindow* window, double xoffset, double yoffset)
-        {
-            static_cast<openglExample*>(glfwGetWindowUserPointer(window))->mouseScrollCallback(xoffset, yoffset);
-        }
-
-        #if defined(WIN32)
-        static LRESULT CALLBACK keyEventSubClassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-        #endif
+        bool pick(int* tx, int* ty);
 };

@@ -3,7 +3,9 @@
 
             Cross platform example for illustration and standalone testing
             of Dullahan features. Renders output to an OpenGL 2.1 quad
-            and allows interaction using the mouse.
+            and allows interaction using the mouse and keyboard.
+
+            Windowing, input and the OpenGL context are provided by SDL3.
 
     @author Callum Prentice - August 2025
 
@@ -33,22 +35,19 @@
 #include <filesystem>
 #include <random>
 #include <sstream>
+#include <cmath>
 
 #include "opengl-example.h"
 
 #include "dullahan.h"
 
-void errorCallback(int error, const char* description)
-{
-    std::cerr << "GLFW error: (" << error << ") - " << description << std::endl;
-}
-
 openglExample::openglExample() :
-    mDullahan(nullptr),
-    mTextureId(0),
-    mPickTextureId(0),
     mWindow(nullptr),
-    mShowAbout(false)
+    mGLContext(nullptr),
+    mShouldClose(false),
+    mShowAbout(false),
+    mTextureId(0),
+    mDullahan(nullptr)
 {
 }
 
@@ -75,44 +74,34 @@ void openglExample::resizeCallback(int width, int height)
     }
 }
 
-void openglExample::handleKeyEvent(int key, int scancode, int action, int mods)
-{
-    // keep the ESC key to exit as well as File -> Quit since it's useful
-    if (action == GLFW_PRESS)
-    {
-        if (key == GLFW_KEY_ESCAPE)
-        {
-            mDullahan->requestExit();
-        }
-    }
-}
-
-void openglExample::mouseButtonCallback(int button, int action, int mods)
+void openglExample::mouseButtonCallback(Uint8 sdl_button, bool down)
 {
     int width;
     int height;
-    glfwGetWindowSize(mWindow, &width, &height);
+    SDL_GetWindowSize(mWindow, &width, &height);
 
-    double xpos;
-    double ypos;
-    glfwGetCursorPos(mWindow, &xpos, &ypos);
+    float fxpos;
+    float fypos;
+    SDL_GetMouseState(&fxpos, &fypos);
+    double xpos = (double)fxpos;
+    double ypos = (double)fypos;
 
-    if (glfwGetKey(mWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+    if (SDL_GetModState() & SDL_KMOD_CTRL)
     {
         mMouseOffsetStartX = xpos / (double)width;
 
-        if (button == GLFW_MOUSE_BUTTON_LEFT)
+        if (sdl_button == SDL_BUTTON_LEFT)
         {
-            if (action == GLFW_PRESS)
+            if (down)
             {
                 mMouseOffsetStartY = ypos / (double)height;
                 mXRotationStart = mXRotation;
                 mYRotationStart = mYRotation;
             }
         }
-        if (button == GLFW_MOUSE_BUTTON_RIGHT)
+        if (sdl_button == SDL_BUTTON_RIGHT)
         {
-            if (action == GLFW_PRESS)
+            if (down)
             {
                 mMouseOffsetStartY = ((double)height - ypos) / (double)height;
                 mXPanStart = mXPan;
@@ -124,36 +113,38 @@ void openglExample::mouseButtonCallback(int button, int action, int mods)
     {
         int tx;
         int ty;
-        // Draw pick texture, save mouse location then draw browser output
-        if (draw(&tx, &ty))
+        // ray-cast the cursor onto the page quad
+        if (pick(&tx, &ty))
         {
             mDullahan->mouseButton(
                 dullahan::MB_MOUSE_BUTTON_LEFT,
-                action == GLFW_PRESS ? dullahan::ME_MOUSE_DOWN : dullahan::ME_MOUSE_UP,
+                down ? dullahan::ME_MOUSE_DOWN : dullahan::ME_MOUSE_UP,
                 tx, ty);
         }
     }
 }
 
-void openglExample::mouseMoveCallback(double xpos, double ypos)
+void openglExample::mouseMoveCallback(float xpos, float ypos)
 {
     int width;
     int height;
-    glfwGetWindowSize(mWindow, &width, &height);
+    SDL_GetWindowSize(mWindow, &width, &height);
 
-    if (glfwGetKey(mWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+    SDL_MouseButtonFlags buttons = SDL_GetMouseState(nullptr, nullptr);
+
+    if (SDL_GetModState() & SDL_KMOD_CTRL)
     {
-        mMouseOffsetX = xpos / (double)width;
+        mMouseOffsetX = (double)xpos / (double)width;
 
-        if (glfwGetMouseButton(mWindow, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+        if (buttons & SDL_BUTTON_MASK(SDL_BUTTON_LEFT))
         {
-            mMouseOffsetY = ypos / (double)height;
+            mMouseOffsetY = (double)ypos / (double)height;
             mYRotation = mYRotationStart + (mMouseOffsetX - mMouseOffsetStartX) * 360.0f;
             mXRotation = mXRotationStart + (mMouseOffsetY - mMouseOffsetStartY) * 360.0f;
         }
-        if (glfwGetMouseButton(mWindow, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+        if (buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT))
         {
-            mMouseOffsetY = ((double)height - ypos) / (double)height;
+            mMouseOffsetY = ((double)height - (double)ypos) / (double)height;
             mXPan = mXPanStart + (mMouseOffsetX - mMouseOffsetStartX) * 5.0f;
             mYPan = mYPanStart + (mMouseOffsetY - mMouseOffsetStartY) * 5.0f;
         }
@@ -162,19 +153,19 @@ void openglExample::mouseMoveCallback(double xpos, double ypos)
     {
         int tx;
         int ty;
-        // Draw pick texture, save mouse location then draw browser output
-        if (draw(&tx, &ty))
+        // ray-cast the cursor onto the page quad
+        if (pick(&tx, &ty))
         {
             mDullahan->mouseMove(tx, ty);
         }
     }
 }
 
-void openglExample::mouseScrollCallback(double xoffset, double yoffset)
+void openglExample::mouseScrollCallback(float xoffset, float yoffset)
 {
-    if (glfwGetKey(mWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+    if (SDL_GetModState() & SDL_KMOD_CTRL)
     {
-        mCameraDist += yoffset / mZoomSensitivity;
+        mCameraDist += (double)yoffset / mZoomSensitivity;
 
         if (mCameraDist < mZoomMin)
         {
@@ -189,63 +180,108 @@ void openglExample::mouseScrollCallback(double xoffset, double yoffset)
     {
         int tx;
         int ty;
-        // Draw pick texture, save mouse location then draw browser output
-        if (draw(&tx, &ty))
+        // ray-cast the cursor onto the page quad
+        if (pick(&tx, &ty))
         {
             mDullahan->mouseWheel(tx, ty, (int)xoffset, (int)(yoffset * 20));
         }
     }
-
 }
 
-#if defined(WIN32)
-// Windows subclass procedure for handling keyboard events using native
-// Windows messages and parameters which is what Dullahan requires.
-LRESULT CALLBACK openglExample::keyEventSubClassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+// Forward keyboard key presses to the browser. Dullahan provides an SDL
+// keyboard path (nativeKeyboardEventSDL2) that maps SDL keycodes/modifiers
+// to the native values CEF requires - this is what makes keyboard input
+// work across all platforms (the old GLFW example could not do this).
+void openglExample::keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Keymod mod, bool down)
 {
-    if (uMsg == WM_CHAR || uMsg == WM_KEYDOWN || uMsg == WM_KEYUP)
+    // keep the ESC key to exit as well as File -> Quit since it's useful
+    if (down && key == SDLK_ESCAPE)
     {
-        openglExample* parent = (openglExample*)dwRefData;
-        parent->mDullahan->nativeKeyboardEventWin(uMsg, (uint32_t)wParam, lParam);
+        mDullahan->requestExit();
+        return;
     }
 
-    return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+    // don't forward keystrokes to the page while ImGui owns the keyboard
+    // (e.g. when typing a URL into the address bar)
+    if (ImGui::GetIO().WantCaptureKeyboard)
+    {
+        return;
+    }
+
+    bool keypad = (scancode >= SDL_SCANCODE_KP_DIVIDE && scancode <= SDL_SCANCODE_KP_PERIOD);
+    dullahan::EKeyEvent key_event = down ? dullahan::KE_KEY_DOWN : dullahan::KE_KEY_UP;
+    mDullahan->nativeKeyboardEventSDL2(key_event, (uint32_t)key, (uint32_t)mod, keypad);
 }
-#endif
+
+// Forward typed characters to the browser. SDL delivers text as UTF-8 so
+// decode each codepoint and send it on as a character event.
+void openglExample::textInputEvent(const char* text)
+{
+    if (ImGui::GetIO().WantCaptureKeyboard)
+    {
+        return;
+    }
+
+    uint32_t mod = (uint32_t)SDL_GetModState();
+
+    for (const unsigned char* p = (const unsigned char*)text; p && *p; )
+    {
+        uint32_t cp = *p++;
+        int extra = 0;
+        if (cp >= 0xF0) { cp &= 0x07; extra = 3; }
+        else if (cp >= 0xE0) { cp &= 0x0F; extra = 2; }
+        else if (cp >= 0xC0) { cp &= 0x1F; extra = 1; }
+        while (extra-- > 0 && (*p & 0xC0) == 0x80)
+        {
+            cp = (cp << 6) | (*p++ & 0x3F);
+        }
+        mDullahan->nativeKeyboardEventSDL2(dullahan::KE_KEY_CHAR, cp, mod, false);
+    }
+}
 
 bool openglExample::init()
 {
-    if (! glfwInit())
+    if (! SDL_Init(SDL_INIT_VIDEO))
     {
+        std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
         exit(EXIT_FAILURE);
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    glfwWindowHint(GLFW_SAMPLES, 0);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
+    // Request a legacy OpenGL 2.1 compatibility context to match the
+    // fixed-function pipeline used to draw the textured quad.
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-    mWindow = glfwCreateWindow(mWindowWidth, mWindowHeight, mWindowTitle.c_str(), nullptr, nullptr);
+    // SDL_WINDOW_HIGH_PIXEL_DENSITY gives a true pixel-resolution framebuffer on
+    // HiDPI / Retina displays so the page is rendered crisply at native size.
+    mWindow = SDL_CreateWindow(mWindowTitle.c_str(), mWindowWidth, mWindowHeight, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (! mWindow)
     {
-        glfwTerminate();
+        std::cerr << "Failed to create SDL window: " << SDL_GetError() << std::endl;
+        SDL_Quit();
         exit(EXIT_FAILURE);
     }
 
-    // store this to so the static callbacks can get to an instance
-    glfwSetWindowUserPointer(mWindow, this);
+    mGLContext = SDL_GL_CreateContext(mWindow);
+    if (! mGLContext)
+    {
+        std::cerr << "Failed to create OpenGL context: " << SDL_GetError() << std::endl;
+        SDL_DestroyWindow(mWindow);
+        SDL_Quit();
+        exit(EXIT_FAILURE);
+    }
 
-    // Create a Windows subclass procedure for handling keyboard events using
-    // native Windows messages and parameters which is what Dullahan requires.
-    #if defined(WIN32)
-    HWND hwnd = glfwGetWin32Window(mWindow);
-    SetWindowSubclass(hwnd, keyEventSubClassProc, 0x01, (DWORD_PTR)this);
-    #endif
-
-    glfwSetErrorCallback(errorCallback);
-    glfwMakeContextCurrent(mWindow);
-    gladLoadGL();
+    SDL_GL_MakeCurrent(mWindow, mGLContext);
+#if !LL_DARWIN
+    if (! gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+    {
+        std::cerr << "Failed to load OpenGL functions" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+#endif
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClearDepth(1.0f);
@@ -253,25 +289,19 @@ bool openglExample::init()
     glDepthFunc(GL_LEQUAL);
     glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
-    glfwSwapInterval(1);
+    // enable vsync (ignore failure, e.g. when no compositor is present)
+    SDL_GL_SetSwapInterval(1);
 
-    glfwSetKeyCallback(mWindow, keyCallbackStatic);
-    glfwSetMouseButtonCallback(mWindow, mouseButtonCallbackStatic);
-    glfwSetCursorPosCallback(mWindow, mouseMoveCallbackStatic);
-    glfwSetScrollCallback(mWindow, mouseScrollCallbackStatic);
+    // start text input so typed characters are delivered as SDL_EVENT_TEXT_INPUT
+    SDL_StartTextInput(mWindow);
 
     int width, height;
-    glfwSetFramebufferSizeCallback(mWindow, resizeCallbackStatic);
-    glfwGetFramebufferSize(mWindow, &width, &height);
+    SDL_GetWindowSizeInPixels(mWindow, &width, &height);
     resizeCallback(width, height);
 
     // Texture used to display browser output on the quad
     glGenTextures(1, &mTextureId);
     glBindTexture(GL_TEXTURE_2D, mTextureId);
-
-    // Generates the picking texture - each pixel in the texture
-    // holds the coordinates of its location for mouse picking
-    generatePickTexture();
 
     initUI();
 
@@ -305,66 +335,123 @@ bool openglExample::init()
         mDullahan->setOnRequestExitCallback(std::bind(&openglExample::onRequestExitCallback, this));
 
         mDullahan->navigate(mHomeUrl);
+
+        // Render the page at the current window size from the start rather than
+        // being limited to the initial offscreen size above.
+        int win_px_w, win_px_h;
+        SDL_GetWindowSizeInPixels(mWindow, &win_px_w, &win_px_h);
+        mDullahan->setSize(win_px_w, win_px_h);
     }
 
     return true;
 }
 
-void openglExample::generatePickTexture()
+// Ray-cast the mouse cursor onto the textured quad and return the browser
+// (texture) coordinate underneath it, or false if the cursor isn't over the
+// quad. This replaces the old "pick texture" + glReadPixels trick: it needs no
+// extra GL work, has no resolution limit, and is HiDPI independent because it
+// works entirely in logical coordinates / ratios.
+bool openglExample::pick(int* tx, int* ty)
 {
-    unsigned char* pick_texture_pixels = new unsigned char[mTextureWidth * mTextureHeight * mTextureDepth];
-
-    glGenTextures(1, (GLuint*)(&mPickTextureId));
-    for (size_t y = 0; y < mTextureHeight; ++y)
+    int win_w;
+    int win_h;
+    SDL_GetWindowSize(mWindow, &win_w, &win_h);
+    if (win_w <= 0 || win_h <= 0)
     {
-        for (size_t x = 0; x < mTextureWidth; ++x)
-        {
-            // use use 12 bits for x and y position and some 'random' value for the ID
-            unsigned long mask = ((unsigned long)x << 12) | ((unsigned long)y);
-            pick_texture_pixels[y * mTextureWidth * mTextureDepth + x * mTextureDepth + 0] = mask & 0xff;
-            pick_texture_pixels[y * mTextureWidth * mTextureDepth + x * mTextureDepth + 1] = (mask >> 8) & 0xff;
-            pick_texture_pixels[y * mTextureWidth * mTextureDepth + x * mTextureDepth + 2] = (mask >> 16) & 0xff;
-            pick_texture_pixels[y * mTextureWidth * mTextureDepth + x * mTextureDepth + 3] = mBrowserId;
-        };
+        return false;
     }
 
-    glBindTexture(GL_TEXTURE_2D, (GLuint)mPickTextureId);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)mTextureWidth, (GLsizei)mTextureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, pick_texture_pixels);
+    float fxpos;
+    float fypos;
+    SDL_GetMouseState(&fxpos, &fypos);
 
-    delete [] pick_texture_pixels;
-}
+    // must match the perspective set up in resizeCallback()
+    const double pi = 3.1415926;
+    const double near_plane = 0.1;
+    const double fov = 60.0;
+    double frustum_height = tan(fov / 360.0 * pi) * near_plane;
+    double frustum_width = frustum_height * (double)win_w / (double)win_h;
 
-// Converts the position of the mouse on the screen into
-// the position within the quad - return true if hit and
-// location X, Y (0..texture size) is passed back
-bool openglExample::mousePosToTexturePos(int* tx, int* ty)
-{
-    int width;
-    int height;
-    glfwGetWindowSize(mWindow, &width, &height);
+    // mouse position -> normalized device coords (flip Y; SDL has a top-left origin)
+    double ndc_x = 2.0 * ((double)fxpos / (double)win_w) - 1.0;
+    double ndc_y = 1.0 - 2.0 * ((double)fypos / (double)win_h);
 
-    double xpos;
-    double ypos;
-    glfwGetCursorPos(mWindow, &xpos, &ypos);
+    // ray from the camera (eye origin) through the near plane, in eye space
+    double dir_ex = ndc_x * frustum_width;
+    double dir_ey = ndc_y * frustum_height;
+    double dir_ez = -near_plane;
 
-    unsigned char pick_pixel_color[4];
-    glBindTexture(GL_TEXTURE_2D, (GLuint)mPickTextureId);
-    glReadPixels((int)xpos, height - (int)ypos, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pick_pixel_color);
+    // The modelview in draw() is T(pan, cameraDist) * Rx(mXRotation) * Ry(mYRotation),
+    // so transform the eye-space ray into the quad's local space with the inverse:
+    // Ry(-mYRotation) * Rx(-mXRotation) * (point - translation).
+    double rx = mXRotation * pi / 180.0;
+    double ry = mYRotation * pi / 180.0;
+    double cx = cos(rx);
+    double sx = sin(rx);
+    double cy = cos(ry);
+    double sy = sin(ry);
 
-    if (pick_pixel_color[3] != mBrowserId)
+    auto inv_rotate = [&](double x, double y, double z, double& ox, double& oy, double& oz)
+    {
+        // Rx(-rx)
+        double ax = x;
+        double ay = y * cx + z * sx;
+        double az = -y * sx + z * cx;
+        // Ry(-ry)
+        ox = ax * cy - az * sy;
+        oy = ay;
+        oz = ax * sy + az * cy;
+    };
+
+    double ox;
+    double oy;
+    double oz;
+    inv_rotate(-mXPan, -mYPan, -mCameraDist, ox, oy, oz);   // ray origin in local space
+
+    double dx;
+    double dy;
+    double dz;
+    inv_rotate(dir_ex, dir_ey, dir_ez, dx, dy, dz);         // ray direction in local space
+
+    // intersect the ray with the quad plane (z = 0 in local space)
+    if (fabs(dz) < 1e-9)
+    {
+        return false;
+    }
+    double t = -oz / dz;
+    if (t < 0.0)
+    {
+        return false;
+    }
+
+    double hx = ox + t * dx;
+    double hy = oy + t * dy;
+
+    // the quad spans [-1, 1] in x and y
+    if (hx < -1.0 || hx > 1.0 || hy < -1.0 || hy > 1.0)
     {
         *tx = -1;
         *ty = -1;
         return false;
     }
 
-    *tx = (pick_pixel_color[2] << 4) | (pick_pixel_color[1] >> 4);
-    *ty = ((pick_pixel_color[1] & 0x0f) << 8) | (pick_pixel_color[0]);
+    // local hit position -> texture coordinate (matches the quad texcoords in draw())
+    double u = (hx + 1.0) * 0.5;
+    double v = (1.0 - hy) * 0.5;
 
+    int ix = (int)(u * (double)mTextureWidth);
+    int iy = (int)(v * (double)mTextureHeight);
+    if (ix < 0) ix = 0;
+    if (iy < 0) iy = 0;
+    if (ix >= mTextureWidth) ix = mTextureWidth - 1;
+    if (iy >= mTextureHeight) iy = mTextureHeight - 1;
+
+    *tx = ix;
+    *ty = iy;
     return true;
 }
 
-bool openglExample::draw(int* tx, int* ty)
+void openglExample::draw()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -380,67 +467,41 @@ bool openglExample::draw(int* tx, int* ty)
     glEnable(GL_TEXTURE_2D);
     glColor3f(1.0, 1.0, 1.0);
 
-    bool hit_browser = false;
-
-    // Draw the quad for both picking and displaying
-    // browser output - only difference is texture in play
-    auto draw_quad = []()
-    {
-        GLfloat pos_x = 0;
-        GLfloat pos_y = 0;
-        GLfloat pos_z = 0;
-
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0, 1.0);
-        glVertex3f(pos_x - (GLfloat)1.0, pos_y - (GLfloat)1.0, pos_z);
-        glTexCoord2f(1.0, 1.0);
-        glVertex3f(pos_x + (GLfloat)1.0, pos_y - (GLfloat)1.0, pos_z);
-        glTexCoord2f(1.0, 0.0);
-        glVertex3f(pos_x + (GLfloat)1.0, pos_y + (GLfloat)1.0, pos_z);
-        glTexCoord2f(0.0, 0.0);
-        glVertex3f(pos_x - (GLfloat)1.0, pos_y + (GLfloat)1.0, pos_z);
-        glEnd();
-
-    };
-
-    // Only send back texture X/Y of mouse when picking
-    if (tx != nullptr && ty != nullptr)
-    {
-        // draw picking texture
-        glBindTexture(GL_TEXTURE_2D, (GLuint)mPickTextureId);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        draw_quad();
-
-        // determine location of mouse cursor
-        hit_browser = mousePosToTexturePos(tx, ty);
-    }
-
-    // Now draw again with browser output texture
+    // draw the browser output texture on a quad spanning [-1, 1] in x and y.
+    // pick() relies on this same geometry / texcoord mapping.
     glBindTexture(GL_TEXTURE_2D, (GLuint)mTextureId);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    draw_quad();
 
-
-    return hit_browser;
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0, 1.0);
+    glVertex3f(-1.0f, -1.0f, 0.0f);
+    glTexCoord2f(1.0, 1.0);
+    glVertex3f( 1.0f, -1.0f, 0.0f);
+    glTexCoord2f(1.0, 0.0);
+    glVertex3f( 1.0f,  1.0f, 0.0f);
+    glTexCoord2f(0.0, 0.0);
+    glVertex3f(-1.0f,  1.0f, 0.0f);
+    glEnd();
 }
 
 // Triggered when browser page content changes
 void openglExample::onPageChanged(const unsigned char* pixels, int x, int y, const int width, const int height)
 {
-    // This should always be true but test just in case
-    if (width == mTextureWidth && height == mTextureHeight)
-    {
-        glBindTexture(GL_TEXTURE_2D, (GLuint)mTextureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)mTextureWidth, (GLsizei)mTextureHeight, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
-    }
+    // CEF can change its render size at runtime (e.g. when the window is resized
+    // and resizeCallback() calls setSize()) so track the size (pick() needs it)
+    // and upload the frame at its reported dimensions.
+    mTextureWidth = width;
+    mTextureHeight = height;
+
+    glBindTexture(GL_TEXTURE_2D, (GLuint)mTextureId);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)width, (GLsizei)height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 }
 
 // Triggered by Dullahan when cleanup is complete and it's okay to exit
 void openglExample::onRequestExitCallback()
 {
-    glfwSetWindowShouldClose(mWindow, GLFW_TRUE);
+    mShouldClose = true;
 }
 
 void openglExample::initUI()
@@ -451,7 +512,7 @@ void openglExample::initUI()
     (void)io;
     ImGui::StyleColorsDark();
     io.FontGlobalScale = 1.2f;
-    ImGui_ImplGlfw_InitForOpenGL(mWindow, true);
+    ImGui_ImplSDL3_InitForOpenGL(mWindow, mGLContext);
     ImGui_ImplOpenGL2_Init();
 }
 
@@ -459,7 +520,7 @@ void openglExample::updateUI()
 {
     // main host for UI - URL and bookmarks drop-down
     ImGui_ImplOpenGL2_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
     // Turn off window decoaration - we don't want
@@ -483,7 +544,7 @@ void openglExample::updateUI()
         {
             if (ImGui::MenuItem("Quit"))
             {
-                glfwSetWindowShouldClose(mWindow, GLFW_TRUE);
+                mShouldClose = true;
             }
             ImGui::EndMenu();
         }
@@ -552,7 +613,7 @@ void openglExample::updateUI()
             ss << "CEF version: " << mDullahan->dullahan_cef_version(false);
             ss << std::endl << std::endl;
 
-            ImGui::Text(ss.str().c_str());
+            ImGui::Text("%s", ss.str().c_str());
         }
         ImGui::End();
         ImGui::PopStyleVar();
@@ -610,27 +671,85 @@ void openglExample::updateUI()
 void openglExample::resetUI()
 {
     ImGui_ImplOpenGL2_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 }
 
 bool openglExample::run()
 {
-    while (! glfwWindowShouldClose(mWindow))
+    while (! mShouldClose)
     {
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            ImGui_ImplSDL3_ProcessEvent(&event);
+
+            switch (event.type)
+            {
+                case SDL_EVENT_QUIT:
+                    mShouldClose = true;
+                    break;
+
+                case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+                    resizeCallback(event.window.data1, event.window.data2);
+                    break;
+
+                case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                    if (! ImGui::GetIO().WantCaptureMouse)
+                    {
+                        mouseButtonCallback(event.button.button, true);
+                    }
+                    break;
+
+                case SDL_EVENT_MOUSE_BUTTON_UP:
+                    if (! ImGui::GetIO().WantCaptureMouse)
+                    {
+                        mouseButtonCallback(event.button.button, false);
+                    }
+                    break;
+
+                case SDL_EVENT_MOUSE_MOTION:
+                    if (! ImGui::GetIO().WantCaptureMouse)
+                    {
+                        mouseMoveCallback(event.motion.x, event.motion.y);
+                    }
+                    break;
+
+                case SDL_EVENT_MOUSE_WHEEL:
+                    if (! ImGui::GetIO().WantCaptureMouse)
+                    {
+                        mouseScrollCallback(event.wheel.x, event.wheel.y);
+                    }
+                    break;
+
+                case SDL_EVENT_KEY_DOWN:
+                    keyboardEvent(event.key.key, event.key.scancode, event.key.mod, true);
+                    break;
+
+                case SDL_EVENT_KEY_UP:
+                    keyboardEvent(event.key.key, event.key.scancode, event.key.mod, false);
+                    break;
+
+                case SDL_EVENT_TEXT_INPUT:
+                    textInputEvent(event.text.text);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
         if (mDullahan)
         {
             mDullahan->update();
         }
 
-        // Drawe browser output but do not pick
-        draw(nullptr, nullptr);
+        // draw the browser output
+        draw();
 
         updateUI();
 
-        glfwSwapBuffers(mWindow);
-
-        glfwPollEvents();
+        SDL_GL_SwapWindow(mWindow);
     }
     return true;
 }
@@ -639,9 +758,11 @@ bool openglExample::reset()
 {
     resetUI();
 
-    glfwDestroyWindow(mWindow);
+    SDL_GL_DestroyContext(mGLContext);
 
-    glfwTerminate();
+    SDL_DestroyWindow(mWindow);
+
+    SDL_Quit();
 
     return true;
 }
