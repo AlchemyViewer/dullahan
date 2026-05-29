@@ -44,14 +44,8 @@
 #include "include/wrapper/cef_library_loader.h"
 #endif
 
-
-#ifdef __linux__
-#include "dullahan_impl_linux.cpp"
-#elif WIN32
-#include "dullahan_impl_windows.cpp"
+#if WIN32
 #include <winnls.h> // for WideCharToMultiByte
-#else
-#include "dullahan_impl_mac.cpp"
 #endif
 
 #include <iostream>
@@ -93,8 +87,6 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
 {
     if (process_type.empty())
     {
-        // <ND> Enable HTMLImports to get youtube live chat to work
-        command_line->AppendSwitchWithValue("enable-blink-features", "HTMLImports");
         if (mMediaStreamEnabled == true)
         {
             command_line->AppendSwitch("enable-media-stream");
@@ -114,7 +106,6 @@ void dullahan_impl::OnBeforeCommandLineProcessing(const CefString& process_type,
 
         // <ND> n.b. be careful enabling this. At least on Linux it will break sites like twitch.tv mixer.com, dlive.com.
         // Probably this also makes only sense for Win32?
-
         if (mDisableGPU == true)
         {
             command_line->AppendSwitch("disable-gpu");

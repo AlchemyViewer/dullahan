@@ -1,3 +1,5 @@
+#include "dullahan_impl.h"
+
 #include <math.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -51,7 +53,7 @@ void dullahan_impl::platformAddCommandLines(CefRefPtr<CefCommandLine> command_li
 
     if( pSDLVideoDriver && strcmp( pSDLVideoDriver, "wayland" ) == 0 )
         use_wayland = true;
- 
+
     std::cerr << "Using wayland: " << use_wayland << std::endl;
 
     if( use_wayland )

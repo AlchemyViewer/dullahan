@@ -60,10 +60,15 @@ endif()
 
 # add source files to library
 if(WINDOWS)
+    set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_windows.cpp)
     set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_win.cpp)
 elseif(DARWIN)
+    set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_mac.mm)
     set_source_files_properties(src/dullahan_impl.cpp PROPERTIES LANGUAGE OBJCXX)
     set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_mac.mm)
+elseif(LINUX)
+    set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_linux.cpp)
+    set(KEYBOARD_IMPL_SRC_FILE)
 endif()
 
 add_library(
@@ -80,6 +85,7 @@ add_library(
     src/dullahan_impl.h
     src/dullahan_version.h
     src/dullahan_version.h.in
+    ${PLATFORM_IMPL_SRC_FILE}
     ${KEYBOARD_IMPL_SRC_FILE}
     src/dullahan_impl_keyboard_sdl.cpp
     src/dullahan_impl_mouse.cpp
