@@ -34,22 +34,22 @@ namespace dullahanImplMacAssist
     {
         uint32_t modifers = EVENTFLAG_NONE;
         
-        if (modifierFlags & NSAlphaShiftKeyMask)
+        if (modifierFlags & NSEventModifierFlagCapsLock)
             modifers |= EVENTFLAG_CAPS_LOCK_ON;
         
-        if (modifierFlags & NSShiftKeyMask)
+        if (modifierFlags & NSEventModifierFlagShift)
             modifers |= EVENTFLAG_SHIFT_DOWN;
         
-        if (modifierFlags & NSControlKeyMask)
+        if (modifierFlags & NSEventModifierFlagControl)
             modifers |= EVENTFLAG_CONTROL_DOWN;
         
-        if (modifierFlags & NSAlternateKeyMask)
+        if (modifierFlags & NSEventModifierFlagOption)
             modifers |= EVENTFLAG_ALT_DOWN;
         
-        if (modifierFlags & NSCommandKeyMask)
+        if (modifierFlags & NSEventModifierFlagCommand)
             modifers |= EVENTFLAG_COMMAND_DOWN;
         
-        if (modifierFlags & NSNumericPadKeyMask)
+        if (modifierFlags & NSEventModifierFlagNumericPad)
             modifers |= EVENTFLAG_IS_KEY_PAD;
         
         return modifers;
@@ -69,12 +69,12 @@ void dullahan_impl::nativeKeyboardEventOSX(void* event)
             static uint32_t lastModifiers = dullahanImplMacAssist::modifiersForModifierFlags([NSEvent modifierFlags]);
             static uint32_t newModifiers = dullahanImplMacAssist::modifiersForModifierFlags([NSEvent modifierFlags]);
 
-            NSEvent* ns_event = (NSEvent*)event;
+            NSEvent* ns_event = (__bridge NSEvent*)event;
 
             lastModifiers = newModifiers;
             newModifiers = dullahanImplMacAssist::modifiersForModifierFlags([ns_event modifierFlags]);
 
-            if (([ns_event type] == NSKeyDown) || ([ns_event type] == NSKeyUp))
+            if (([ns_event type] == NSEventTypeKeyDown) || ([ns_event type] == NSEventTypeKeyUp))
             {
                 CefKeyEvent keyEvent;
                 
@@ -94,13 +94,13 @@ void dullahan_impl::nativeKeyboardEventOSX(void* event)
                 keyEvent.is_system_key = false;
                 keyEvent.modifiers = newModifiers;
 
-                if ([ns_event type] == NSKeyDown)
+                if ([ns_event type] == NSEventTypeKeyDown)
                 {
                     keyEvent.type =  KEYEVENT_KEYDOWN;
                     mBrowser->GetHost()->SendKeyEvent(keyEvent);
                 }
                 else
-                if ([ns_event type] == NSKeyUp)
+                    if ([ns_event type] == NSEventTypeKeyUp)
                 {
                     keyEvent.type =  KEYEVENT_KEYUP;
                     mBrowser->GetHost()->SendKeyEvent(keyEvent);
