@@ -128,7 +128,7 @@ if(WINDOWS)
         dullahan_host
         WIN32
         src/host/dullahan_host.cpp
-        src/win/compatibility.manifest
+        src/compatibility.manifest
     )
 
     # define which include directories to pull in
@@ -264,7 +264,7 @@ if (BUILD_EXAMPLES)
         ${OPENGL_EXAMPLE_PLATFORM_SRC}
         ${THIRD-PARTY-PREFIX}/${GLAD_FOLDER}/src/glad.c
         examples/opengl-example/README.md
-        src/win/compatibility.manifest
+        src/compatibility.manifest
     )
 
     target_include_directories(
