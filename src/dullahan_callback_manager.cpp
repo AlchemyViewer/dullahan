@@ -292,3 +292,16 @@ bool dullahan_callback_manager::onJSBeforeUnloadCallback()
     return false;
 }
 
+void dullahan_callback_manager::setOnRequestContextMenuCallback(std::function<void(int x, int y, uint32_t edit_flags)> callback)
+{
+    mOnRequestContextMenuCallbackFunc = callback;
+}
+
+void dullahan_callback_manager::onRequestContextMenu(int x, int y, uint32_t edit_flags)
+{
+    if (mOnRequestContextMenuCallbackFunc)
+    {
+        mOnRequestContextMenuCallbackFunc(x, y, edit_flags);
+    }
+}
+

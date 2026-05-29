@@ -444,3 +444,8 @@ void dullahan::setOnJSBeforeUnloadCallback(std::function<bool()> callback)
 {
     mImpl->getCallbackManager()->setOnJSBeforeUnloadCallback(callback);
 }
+
+void dullahan::setOnRequestContextMenuCallback(std::function<void(int x, int y, unsigned int edit_flags)> callback)
+{
+    mImpl->getCallbackManager()->setOnRequestContextMenuCallback(callback);
+}

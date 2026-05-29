@@ -91,6 +91,12 @@ class dullahan_callback_manager
         void setOnJSBeforeUnloadCallback(std::function<bool()> callback);
         bool onJSBeforeUnloadCallback();
 
+        // Fired when the page requests a context menu (right-click). Carries the
+        // current edit-state flags (dullahan::EEditFlags bitmask) and the page
+        // coordinate, so a host can show its own menu with correct enable state.
+        void setOnRequestContextMenuCallback(std::function<void(int x, int y, uint32_t edit_flags)> callback);
+        void onRequestContextMenu(int x, int y, uint32_t edit_flags);
+
     private:
         std::function<void(const std::string)> mOnAddressChangeCallbackFunc;
         std::function<void(const std::string, const std::string, int)> mOnConsoleMessageCallbackFunc;
@@ -111,6 +117,7 @@ class dullahan_callback_manager
         std::function<const std::vector<std::string>(dullahan::EFileDialogType, const std::string, const std::string, const std::string, bool&)> mOnFileDialogCallbackFunc;
         std::function<bool(const std::string, const std::string, const std::string)> mOnJSDialogCallbackFunc;
         std::function<bool()> mOnJSBeforeUnloadCallbackFunc;
+        std::function<void(int, int, uint32_t)> mOnRequestContextMenuCallbackFunc;
 };
 
 #endif //_DULLAHAN_CALLBACK_MANAGER

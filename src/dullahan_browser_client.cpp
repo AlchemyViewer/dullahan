@@ -104,11 +104,17 @@ void dullahan_browser_client::OnBeforeContextMenu(CefRefPtr<CefBrowser> browser,
 {
     CEF_REQUIRE_UI_THREAD();
 
-    // We don't display a context menu, but the params carry CEF's current
-    // edit-state flags (can undo/redo/cut/copy/paste/delete/select-all) - the
-    // only OSR-friendly way to learn that state. Cache it for editCan*() then
-    // clear the model so no menu is shown.
-    mParent->setEditStateFlags(params->GetEditStateFlags());
+    // We don't display CEF's own context menu, but the params carry CEF's
+    // current edit-state flags (can undo/redo/cut/copy/paste/delete/select-all)
+    // - the only OSR-friendly way to learn that state. Cache it for editCan*().
+    const uint32_t edit_flags = (uint32_t)params->GetEditStateFlags();
+    mParent->setEditStateFlags(edit_flags);
+
+    // Notify the host that a context menu was requested, handing over the page
+    // coordinate and the fresh edit-state so it can show its own menu with the
+    // correct enable state (this is the only point at which that state is known
+    // to be current). Then clear the model so no built-in CEF menu appears.
+    mParent->getCallbackManager()->onRequestContextMenu(params->GetXCoord(), params->GetYCoord(), edit_flags);
 
     model->Clear();
 }

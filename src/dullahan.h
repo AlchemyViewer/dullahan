@@ -55,6 +55,21 @@ class dullahan
             KM_MODIFIER_META = 0x08
         } EKeyboardModifier;
 
+        ////////// edit-state flags //////////
+        // Bitmask reported by the context-menu callback describing which edit
+        // commands are currently available. Values mirror CEF's CM_EDITFLAG_*.
+        typedef enum e_edit_flags
+        {
+            EF_CAN_NONE = 0,
+            EF_CAN_UNDO = 1 << 0,
+            EF_CAN_REDO = 1 << 1,
+            EF_CAN_CUT = 1 << 2,
+            EF_CAN_COPY = 1 << 3,
+            EF_CAN_PASTE = 1 << 4,
+            EF_CAN_DELETE = 1 << 5,
+            EF_CAN_SELECT_ALL = 1 << 6
+        } EEditFlags;
+
         ////////// mouse constants //////////
         typedef enum e_mouse_event
         {
@@ -405,6 +420,12 @@ class dullahan
 
         // JS before unload callback (alert)
         void setOnJSBeforeUnloadCallback(std::function<bool()> callback);
+
+        // Fired when the page requests a context menu (right-click). Gives the
+        // page coordinate and the current edit-state flags (EEditFlags bitmask)
+        // so the host can show its own menu with correct enable state. dullahan
+        // suppresses the built-in CEF menu.
+        void setOnRequestContextMenuCallback(std::function<void(int x, int y, unsigned int edit_flags)> callback);
 
     private:
         std::unique_ptr <dullahan_impl> mImpl;
