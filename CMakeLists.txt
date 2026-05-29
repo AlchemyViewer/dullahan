@@ -1,70 +1,15 @@
 ###############################################################################
-# Dullahan CMake file - Callum Prentice - 2020-05-03
+# Alchemy Dullahan CMake build configuration
 
 include(CEFPlugin)
-
-###############################################################################
-#  Determine platform
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(BUILD_EXAMPLES TRUE)
-elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(BUILD_EXAMPLES TRUE)
-elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(BUILD_EXAMPLES TRUE)
-else()
-    message(FATAL_ERROR "Unsupported platform")
-endif()
-
-###############################################################################
-# location of CEF libraries we link against
-if(WINDOWS)
-    find_library(
-        CEF_LIBRARY_RELEASE
-        NAMES libcef.lib
-        PATHS ${CEF_RELEASE_LIB_DIR}
-        NO_DEFAULT_PATH
-    )
-
-    find_library(
-        CEF_DLL_LIBRARY_RELEASE
-        NAMES libcef_dll_wrapper.lib
-        PATHS ${CEF_RELEASE_DLL_LIB_DIR}
-        NO_DEFAULT_PATH
-    )
-elseif(LINUX)
-    set(CMAKE_CXX_LINK_FLAGS "-Wl,--no-keep-memory -Wl,--build-id -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib' -Wl,--exclude-libs,ALL")
-
-    if( NOT USE_SPOTIFY_CEF )
-        find_library(
-            CEF_LIBRARY_RELEASE
-            NAMES libcef.so
-            PATHS ${CEF_RELEASE_LIB_DIR}
-            PATH_SUFFIXES release
-        )
-        find_library(
-            CEF_DLL_LIBRARY_RELEASE
-            NAMES libcef_dll_wrapper.a
-            PATHS ${CEF_WRAPPER_BUILD_DIR}/libcef_dll_wrapper/
-            PATH_SUFFIXES release
-        )
-        set(CEF_LIBRARY ${CEF_LIBRARY_RELEASE} )
-        set(CEF_DLL_LIBRARY ${CEF_DLL_LIBRARY_RELEASE} )
-    else()
-        set( CEF_DLL_LIBRARY libcef_dll_wrapper )
-        set( CEF_LIBRARY ${CEF_LIB_RELEASE} )
-    endif()
-endif()
-
-###############################################################################
-# Dullahan libary
 
 # add source files to library
 if(WINDOWS)
     set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_windows.cpp)
     set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_win.cpp)
 elseif(DARWIN)
-    set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_mac.mm)
     set_source_files_properties(src/dullahan_impl.cpp PROPERTIES LANGUAGE OBJCXX)
+    set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_mac.mm)
     set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_mac.mm)
 elseif(LINUX)
     set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_linux.cpp)
@@ -131,20 +76,11 @@ if(WINDOWS)
         src/compatibility.manifest
     )
 
-    # define which include directories to pull in
-    target_include_directories(
-        dullahan_host
-        PUBLIC
-        ${CEF_INCLUDE_DIR}
-        ${CEF_INCLUDE_DIR}/..
-    )
-
     set_target_properties(dullahan_host PROPERTIES LINK_FLAGS "/ignore:4099")
 
     target_link_libraries(
         dullahan_host
-        ${CEF_LIBRARY}
-        ${CEF_DLL_LIBRARY}
+        ll::cef
     )
 elseif(DARWIN)
     # Below based on official CEF example code
@@ -196,17 +132,10 @@ elseif(LINUX)
         dullahan_host
         src/host/dullahan_host.cpp
     )
-    target_include_directories(
-        dullahan_host
-        PUBLIC
-        ${CEF_INCLUDE_DIR}
-        ${CEF_INCLUDE_DIR}/..
-    )
 
     target_link_libraries(
         dullahan_host
-        ${CEF_DLL_LIBRARY}
-        ${CEF_LIBRARY}
+        ll::cef
     )
 endif()
 
@@ -279,8 +208,6 @@ if (BUILD_EXAMPLES)
             opengl-example
             dullahan
             opengl32
-            ${CEF_LIBRARY}
-            ${CEF_DLL_LIBRARY}
             ll::SDL3
             imgui::imgui
         )
@@ -290,7 +217,6 @@ if (BUILD_EXAMPLES)
         target_link_libraries (
             opengl-example
             dullahan
-            ${CEF_DLL_LIBRARY}
             ll::SDL3
             imgui::imgui
             ${OPENGL_FRAMEWORK}
@@ -311,8 +237,6 @@ if (BUILD_EXAMPLES)
         target_link_libraries (
             opengl-example
             dullahan
-            ${CEF_DLL_LIBRARY}
-            ${CEF_LIBRARY}
             ll::SDL3
             imgui::imgui
             OpenGL::GL
@@ -321,7 +245,7 @@ if (BUILD_EXAMPLES)
     endif()
 
     add_dependencies(opengl-example dullahan)
-    if(WINDOWS)
+    if(WINDOWS OR LINUX)
         add_dependencies(opengl-example dullahan_host)
     elseif(DARWIN)
         add_dependencies(opengl-example dullahan_host dullahan_host_alerts dullahan_host_gpu dullahan_host_renderer dullahan_host_plugin)
