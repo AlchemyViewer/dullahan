@@ -1,5 +1,21 @@
 # Dullahan
 
+> **Note: this is the Alchemy Viewer fork of Dullahan and is not a standalone project.**
+>
+> It is consumed as a git submodule of the [Alchemy Viewer](https://www.alchemyviewer.org)
+> (under `indra/dullahan`) and is built as part of the viewer's CMake build,
+> which supplies CEF and the other dependencies it needs. It **cannot be built
+> on its own** - the old standalone autobuild scripts (`build-cmd.sh`,
+> `BuildParams`, `tools/build.*`) have been removed, and `CMakeLists.txt` here is
+> included by the viewer rather than configured directly.
+>
+> To build it, configure and build the viewer as described in the viewer's
+> documentation; Dullahan (and its `opengl-example`) are built automatically.
+>
+> The rest of this document is retained from upstream Dullahan for background on
+> what the library is and how its API is used; the standalone build instructions
+> below no longer apply to this fork.
+
 ## What is it?
 
 A headless browser SDK that uses the [Chromium Embedded Framework](https://en.wikipedia.org/wiki/Chromium_Embedded_Framework) (CEF). It is designed to make it easier to write applications that render modern web content directly to a memory buffer, inject synthesized mouse and keyboard events as well as interact with features like JavaScript or cookies.
@@ -43,36 +59,21 @@ In order to build Dullahan, you need a build of CEF. You can acquire or build a 
 
 ## How do I build Dullahan?
 
-Once you have a build of CEF in hand using one of the steps above, you can proceed with a build of Dullahan:
+In this fork you do not build Dullahan directly. It is a git submodule of the
+Alchemy Viewer and is built by the viewer's CMake build, which provides CEF (via
+vcpkg) and the other dependencies. Configure and build the viewer as described
+in its documentation and Dullahan - along with the `opengl-example` - is built
+automatically as part of that.
 
-* Mac
-	* Use the `tools.build.sh` script
-	* Pass in:
-		* The URL of the CEF `.tar.bz2` package that you want to use
-		* The name of a folder to use for the build
-	* For example: `tools/build.sh https://http://opensource.spotify.com/cefbuilds/cef_binary_81.3.1%2Bgb2b49f1%2Bchromium-81.0.4044.113_macosx64.tar.bz2 ./build_cef`
-	* The CEF `libcef_dll_wrapper` will be built first followed by the Dullahan SDK and an example application called `osxgl` found here (in this example) `./build_cef/Release/osxgl.app`
-	* Note: There is no option yet to build directly from a local folder containing an uncompressed copy of CEF (as per the Windows version) - this would be very useful, especially when building CEF locally too and is high on my list of things to do.
-
-* Windiows
-	* Use the `tools.build.bat` batch file
-	* Pass in:
-		* The name of the directory containing the CEF uncompressed `.tar.bz2` package that you want to use
-		* The name of a folder to use for the build
-		* The bit width to build for - 32 or 64
-	* For example: `tools/build.bat https://http://opensource.spotify.com/cefbuilds/cef_binary_81.3.1%2Bgb2b49f1%2Bchromium-81.0.4044.113_macosx64.tar.bz2 ./build_81 64` 
-	* The CEF `libcef_dll_wrapper` will be built first followed by the Dullahan SDK and the examples which can be found here (in this example) `./build_81/Release/`
-	* Note: There is no option yet to build directly from a URL that points to an online CEF package (as per the macOS version) - this would be very useful, especially when building Dullahan from a version of CEF you find on the [Spotify Automated Builds](http://opensource.spotify.com/cefbuilds/index.html) site.
+The upstream standalone build flow (the `tools/build.sh` / `tools/build.bat`
+scripts driven by autobuild) is not used here and those scripts have been
+removed.
 
 ## What are the system requirements for building CEF and Dullahan?
 
 * The requirements for building Chromium and CEF change frequently
 * The requirements for building Dullahan mirror those of CEF and Chromium
 * The most up to date version will always be on the `cef / BranchesAndBuilding` page [here](https://bitbucket.org/chromiumembedded/cef/wiki/BranchesAndBuilding.md#markdown-header-background).
-
-## What are those odd files in the root directory
-
-You might notice some rather unusual files in the root directory of the Dullahan repository - for example: `build-cmd.sh`, `BuildParams` etc. They are used to build the Linden Lab [autobuild](http://wiki.secondlife.com/wiki/Autobuild) version of the Dullahan package that is then used in our product: [Second Life](https://secondlife.com). The [autobuild](http://wiki.secondlife.com/wiki/Autobuild) system is what we use to build all of our internal software and requires that those files be there in the root directory. You can safely ingore them if you are using Dullahan for something outside of Second Life.
 
 ## Which version of the C++ runtime library does it use on Windows?
 
