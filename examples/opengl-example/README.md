@@ -8,5 +8,4 @@ Windowing, input and the OpenGL context are provided by [SDL3](https://www.libsd
 * Run then open Help -> About for instructions
 
 #### Known issues:
-* Code could use an optimization pass - glReadPixels is used to determine mouse move/click position and it's notoriously slow - should probably intersect a ray from mouse cursor into scene.
 * The requisite unique nature of the CEF cache folder means that each time this runs, a new cache folder is created and left behind. This can get quite large - should consider pruning at startup

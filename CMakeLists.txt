@@ -161,9 +161,6 @@ endif()
 ###############################################################################
 # Examples
 if (BUILD_DULLAHAN_EXAMPLE)
-    set (THIRD-PARTY-PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/examples/opengl-example/third-party)
-    set (GLAD_FOLDER "glad-0.1.36")
-
     # Dear ImGui (with the SDL3 + OpenGL2 backends) is provided by vcpkg.
     find_package(imgui CONFIG REQUIRED)
 
@@ -191,7 +188,6 @@ if (BUILD_DULLAHAN_EXAMPLE)
         examples/opengl-example/src/opengl-example.cpp
         examples/opengl-example/src/opengl-example.h
         ${OPENGL_EXAMPLE_PLATFORM_SRC}
-        ${THIRD-PARTY-PREFIX}/${GLAD_FOLDER}/src/glad.c
         examples/opengl-example/README.md
         src/compatibility.manifest
     )
@@ -204,12 +200,14 @@ if (BUILD_DULLAHAN_EXAMPLE)
     )
 
     if(WINDOWS)
+        find_package(glad CONFIG REQUIRED)
         target_link_libraries (
             opengl-example
             dullahan
             opengl32
             ll::SDL3
             imgui::imgui
+            glad::glad
         )
         SET_PROPERTY(DIRECTORY PROPERTY VS_STARTUP_PROJECT "opengl-example")
     elseif(DARWIN)
@@ -234,11 +232,13 @@ if (BUILD_DULLAHAN_EXAMPLE)
                             XCODE_EMBED_FRAMEWORKS "${EXAMPLE_FRAMEWORKS}")
     elseif(LINUX)
         find_package(OpenGL REQUIRED)
+        find_package(glad CONFIG REQUIRED)
         target_link_libraries (
             opengl-example
             dullahan
             ll::SDL3
             imgui::imgui
+            glad::glad
             OpenGL::GL
             ${CMAKE_DL_LIBS}
         )
