@@ -1,95 +1,23 @@
 ###############################################################################
 # Dullahan CMake file - Callum Prentice - 2020-05-03
 
-###############################################################################
-cmake_minimum_required(VERSION 3.13...4.0)
-
-if(CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_CONFIGURATION_TYPES "Release")
-endif()
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_XCODE_GENERATE_TOP_LEVEL_PROJECT_ONLY ON)
-
-###############################################################################
-# Dullahan main project/solution
-project(dullahan)
+include(CEFPlugin)
 
 ###############################################################################
 #  Determine platform
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(IS_WINDOWS TRUE)
     set(BUILD_EXAMPLES TRUE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(IS_MACOS TRUE)
-    set(BUILD_EXAMPLES TRUE)
+    set(BUILD_EXAMPLES FALSE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(IS_LINUX TRUE)
     set(BUILD_EXAMPLES FALSE)
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
 
 ###############################################################################
-# functions
-function(check_exists variable)
-    if(NOT ${variable})
-        message(FATAL_ERROR ${variable} " is not set")
-    else()
-        message(STATUS "--> ${variable} is ${${variable}}")
-    endif()
-endfunction()
-
-option( USE_SPOTIFY_CEF "Use a prebuild CEF from spotify" Off )
-option( SPOTIFY_CEF_URL "URL to the prebuild CEF from spotify" "" )
-
-if( USE_SPOTIFY_CEF )
-    include(FetchContent)
-
-    FetchContent_Declare( cef_prebuild URL  ${SPOTIFY_CEF_URL} )
-    FetchContent_MakeAvailable(cef_prebuild)
-
-    set(CEF_ROOT "${cef_prebuild_SOURCE_DIR}")
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${cef_prebuild_SOURCE_DIR}/cmake")
-    find_package(CEF REQUIRED)
-endif()
-
-
-if( NOT USE_SPOTIFY_CEF )
-    ###############################################################################
-    # The user must pass in CEF_WRAPPER_DIR and CEF_WRAPPER_BUILD_DIR then we
-    # derrive all the other ones we need based on those
-    set(CEF_INCLUDE_DIR ${CEF_WRAPPER_DIR}/include)
-    set(CEF_RELEASE_LIB_DIR ${CEF_WRAPPER_DIR}/Release)
-    set(CEF_RELEASE_DLL_LIB_DIR ${CEF_WRAPPER_BUILD_DIR}/libcef_dll_wrapper/Release)
-    set(CEF_RELEASE_BIN_DIR ${CEF_WRAPPER_DIR}/Release)
-    set(CEF_RESOURCES_DIR ${CEF_WRAPPER_DIR}/Resources)
-
-    # Check if all our variables exist and bail with
-    # a fatal error if any of them are missing
-    check_exists(CEF_WRAPPER_DIR)
-    check_exists(CEF_WRAPPER_BUILD_DIR)
-    check_exists(CEF_INCLUDE_DIR)
-    check_exists(CEF_RELEASE_LIB_DIR)
-    check_exists(CEF_RELEASE_DLL_LIB_DIR)
-    check_exists(CEF_RELEASE_BIN_DIR)
-    check_exists(CEF_RESOURCES_DIR)
-else()
-    set(CEF_INCLUDE_DIR ${cef_prebuild_SOURCE_DIR}/include)
-    set(CEF_RELEASE_LIB_DIR ${cef_prebuild_SOURCE_DIR}/Release)
-    set(CEF_RELEASE_DLL_LIB_DIR ${CEF_WRAPPER_BUILD_DIR}/libcef_dll_wrapper/Release)
-    set(CEF_RELEASE_BIN_DIR ${cef_prebuild_SOURCE_DIR}/Release)
-    set(CEF_RESOURCES_DIR ${cef_prebuild_SOURCE_DIR}/Resources)
-
-    set( CEF_DLL_LIBRARY libcef_dll_wrapper )
-    set( CEF_LIBRARY ${CEF_LIB_RELEASE} )
-endif()
-
-###############################################################################
 # location of CEF libraries we link against
-if(IS_WINDOWS)
+if(WINDOWS)
     find_library(
         CEF_LIBRARY_RELEASE
         NAMES libcef.lib
@@ -103,26 +31,7 @@ if(IS_WINDOWS)
         PATHS ${CEF_RELEASE_DLL_LIB_DIR}
         NO_DEFAULT_PATH
     )
-
-    # Confirm that we were able to find our link libs
-    check_exists(CEF_LIBRARY_RELEASE)
-    check_exists(CEF_DLL_LIBRARY_RELEASE)
-
-elseif(IS_MACOS)
-    find_library(
-        CEF_DLL_LIBRARY_RELEASE
-        NAMES libcef_dll_wrapper.a
-        PATHS ${CEF_RELEASE_DLL_LIB_DIR}
-    )
-
-    find_library(OPENGL_FRAMEWORK OpenGL)
-    find_library(COCOA_FRAMEWORK Cocoa)
-
-    # Check that we were able to find our build components
-    check_exists(CEF_DLL_LIBRARY_RELEASE)
-    check_exists(OPENGL_FRAMEWORK)
-    check_exists(COCOA_FRAMEWORK)
-elseif(IS_LINUX)
+elseif(LINUX)
     set(CMAKE_CXX_LINK_FLAGS "-Wl,--no-keep-memory -Wl,--build-id -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib' -Wl,--exclude-libs,ALL")
 
     if( NOT USE_SPOTIFY_CEF )
@@ -147,44 +56,14 @@ elseif(IS_LINUX)
 endif()
 
 ###############################################################################
-# Final layer of finding the right libs for each combination
-# of name, platform, configuration, type etc.
-if(NOT IS_LINUX)
-  set(CEF_LIBRARY
-      optimized ${CEF_LIBRARY_RELEASE}
-  )
-  set(CEF_DLL_LIBRARY
-      optimized ${CEF_DLL_LIBRARY_RELEASE}
-  )
-endif()
-
-check_exists(CEF_LIBRARY)
-check_exists(CEF_DLL_LIBRARY)
-
-###############################################################################
-# set C and C++ flags
-# Warnings at level 4 (-W4 generates too much spew) but disable:
-#    4100 "unreferenced parameter" -  too much spew for cef code
-#    4127 "conditional is constant" - I use an explicity var to turn code on and off which triggers this
-#    4505 "unreferenced local function has been removed" - supress meaningless freeglut warning
-if(IS_WINDOWS)
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -W4 -wd4100 -wd4127 -wd4505")
-elseif(IS_MACOS)
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -xobjective-c++")
-elseif(IS_LINUX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-array-bounds")
-endif()
-
-###############################################################################
 # Dullahan libary
 
 # add source files to library
-if(IS_WINDOWS)
+if(WINDOWS)
     set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_win.cpp)
-elseif(IS_MACOS)
+elseif(DARWIN)
+    set_source_files_properties(src/dullahan_impl.cpp PROPERTIES LANGUAGE OBJCXX)
     set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_mac.mm)
-elseif(IS_LINUX)
-    set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_linux.cpp)
 endif()
 
 add_library(
@@ -202,29 +81,20 @@ add_library(
     src/dullahan_version.h
     src/dullahan_version.h.in
     ${KEYBOARD_IMPL_SRC_FILE}
+    src/dullahan_impl_keyboard_sdl.cpp
     src/dullahan_impl_mouse.cpp
     src/dullahan_render_handler.cpp
     src/dullahan_render_handler.h
 )
 
-# define which include directories to pull in
-target_include_directories(
-    dullahan
-    PUBLIC
-    ${CEF_INCLUDE_DIR}
-    ${CEF_INCLUDE_DIR}/..
-)
-
-# turn off spurious linker warnings
-if(IS_WINDOWS)
-    set_target_properties(dullahan PROPERTIES LINK_FLAGS "/ignore:4099")
-endif()
+target_link_libraries(dullahan PUBLIC ll::cef)
+target_include_directories(dullahan PUBLIC src)
 
 ###############################################################################
 # Parse CEF version header and process into the Dullahan header file.
 # Only do this if the version input template changed to try to keep
 # version/build number the same for the same set of source files)
-if("${PROJECT_SOURCE_DIR}/src/dullahan_version.h.in" IS_NEWER_THAN "${PROJECT_SOURCE_DIR}/src/dullahan_version.h")
+if("${CMAKE_CURRENT_SOURCE_DIR}/src/dullahan_version.h.in" IS_NEWER_THAN "${CMAKE_CURRENT_SOURCE_DIR}/src/dullahan_version.h")
 
     # Extract CEF/Chrome version info from CEF header
     file(STRINGS ${CEF_INCLUDE_DIR}/cef_version.h CEF_VERSION_STR REGEX "\#define CEF_VERSION ")
@@ -238,8 +108,8 @@ if("${PROJECT_SOURCE_DIR}/src/dullahan_version.h.in" IS_NEWER_THAN "${PROJECT_SO
 
     # Parse the version input file into the Dullahan version header
     configure_file(
-        "${PROJECT_SOURCE_DIR}/src/dullahan_version.h.in"
-        "${PROJECT_SOURCE_DIR}/src/dullahan_version.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/dullahan_version.h.in"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/dullahan_version.h"
     )
 endif()
 
@@ -247,7 +117,7 @@ endif()
 # Dullahan host executable
 
 # add source files to the application
-if(IS_WINDOWS)
+if(WINDOWS)
     add_executable(
         dullahan_host
         WIN32
@@ -270,7 +140,7 @@ if(IS_WINDOWS)
         ${CEF_LIBRARY}
         ${CEF_DLL_LIBRARY}
     )
-elseif(IS_MACOS)
+elseif(DARWIN)
     # Below based on official CEF example code
 
     # CEF Helper app suffixes.
@@ -300,7 +170,7 @@ elseif(IS_MACOS)
         # MACOSX_BUNDLE_INFO_PLIST) uses global env variables and would insert the
         # wrong values with multiple targets.
         set(_helper_info_plist "${CMAKE_CURRENT_BINARY_DIR}/helper-Info${_target_suffix}.plist")
-        file(READ "${PROJECT_SOURCE_DIR}/src/host/Info.plist.in" _plist_contents)
+        file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/host/Info.plist.in" _plist_contents)
         string(REPLACE "\${EXECUTABLE_NAME}" "${_helper_output_name}" _plist_contents ${_plist_contents})
         string(REPLACE "\${PRODUCT_NAME}" "${_helper_output_name}" _plist_contents ${_plist_contents})
         string(REPLACE "\${BUNDLE_ID_SUFFIX}" "${_plist_suffix}" _plist_contents ${_plist_contents})
@@ -309,20 +179,13 @@ elseif(IS_MACOS)
         # Create Helper executable target.
         add_executable(${_helper_target} MACOSX_BUNDLE src/host/dullahan_host.cpp)
 
-        # define which include directories to pull in
-        target_include_directories(
-            ${_helper_target}
-            PUBLIC
-            ${CEF_INCLUDE_DIR}
-            ${CEF_INCLUDE_DIR}/..
-        )
-        target_link_libraries(${_helper_target} ${CEF_DLL_LIBRARY})
+        target_link_libraries(${_helper_target} PRIVATE ll::cef)
         set_target_properties(${_helper_target} PROPERTIES
-        MACOSX_BUNDLE_INFO_PLIST ${_helper_info_plist}
-        OUTPUT_NAME ${_helper_output_name}
+            MACOSX_BUNDLE_INFO_PLIST ${_helper_info_plist}
+            OUTPUT_NAME ${_helper_output_name}
         )
     endforeach()
-elseif(IS_LINUX)
+elseif(LINUX)
     add_executable(
         dullahan_host
         src/host/dullahan_host.cpp
@@ -344,7 +207,7 @@ endif()
 # Windows commands to copy CEF binaries and 'resources' folders to
 # executable dir since they're needed at runtime
 
-if(IS_WINDOWS)
+if(WINDOWS)
     add_custom_command(
         TARGET dullahan_host POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -363,13 +226,13 @@ endif()
 ###############################################################################
 # Examples
 if (BUILD_EXAMPLES)
-    set (THIRD-PARTY-PREFIX ${CMAKE_SOURCE_DIR}/examples/opengl-example/third-party)
+    set (THIRD-PARTY-PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/examples/opengl-example/third-party)
     set (GLAD_FOLDER "glad-0.1.36")
     set (IMGUI_FOLDER "imgui-1.92.2")
-    if(IS_WINDOWS)
+    if(WINDOWS)
         set (GLFW_FOLDER "glfw-3.4.bin.WIN64")
         set (GLFW_LIB_PATH "lib-vc2022/glfw3.lib")
-    elseif(IS_MACOS)
+    elseif(DARWIN)
         set (GLFW_FOLDER "glfw-3.4.bin.MACOS")
         set (GLFW_LIB_PATH "lib-universal/libglfw3.a")
         set (GLFW_FRAMEWORKS "-framework Cocoa" "-framework OpenGL" "-framework IOKit")
@@ -403,7 +266,7 @@ if (BUILD_EXAMPLES)
         ${THIRD-PARTY-PREFIX}/${IMGUI_FOLDER}
     )
 
-    if(IS_WINDOWS)
+    if(WINDOWS)
         target_link_libraries (
             opengl-example
             dullahan
@@ -414,7 +277,7 @@ if (BUILD_EXAMPLES)
             ${THIRD-PARTY-PREFIX}/${GLFW_FOLDER}/${GLFW_LIB_PATH}
         )
         SET_PROPERTY(DIRECTORY PROPERTY VS_STARTUP_PROJECT "opengl-example")
-    elseif(IS_MACOS)
+    elseif(DARWIN)
         find_library (OPENGL_FRAMEWORK OpenGL)
         find_library (COCOA_FRAMEWORK Cocoa)
         find_library (IO_FRAMEWORK IOKit)
@@ -428,7 +291,7 @@ if (BUILD_EXAMPLES)
             ${IO_FRAMEWORK}
         )
         set(EXAMPLE_FRAMEWORKS
-            "${CEF_WRAPPER_DIR}/Release/Chromium Embedded Framework.framework"
+            "${CEF_FRAMEWORK_DIR}"
             dullahan_host
             dullahan_host_alerts
             dullahan_host_gpu
@@ -441,37 +304,9 @@ if (BUILD_EXAMPLES)
     endif()
 
     add_dependencies(opengl-example dullahan)
-    if(IS_WINDOWS)
+    if(WINDOWS)
         add_dependencies(opengl-example dullahan_host)
-    elseif(IS_MACOS)
+    elseif(DARWIN)
         add_dependencies(opengl-example dullahan_host dullahan_host_alerts dullahan_host_gpu dullahan_host_renderer dullahan_host_plugin)
     endif()
-endif()
-
-if(CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_CONFIGURATION_TYPES "Release")
-endif()
-
-# Install the Dullahan library and host executable
-
-if( USE_SPOTIFY_CEF )
-  install( TARGETS dullahan_host DESTINATION bin/release )
-  install( TARGETS dullahan ${CEF_DLL_LIBRARY} DESTINATION lib/release )
-
-  foreach(binFile IN LISTS CEF_BINARY_FILES)
-	if(IS_DIRECTORY ${CEF_BINARY_DIR_RELEASE}/${binFile} )
-	  install( DIRECTORY ${CEF_BINARY_DIR_RELEASE}/${binFile} DESTINATION lib/release )
-	  install( DIRECTORY ${CEF_BINARY_DIR_RELEASE}/${binFile} DESTINATION bin/release )
-	else()
-	  install( PROGRAMS ${CEF_BINARY_DIR_RELEASE}/${binFile} DESTINATION lib/release )
-	  install( PROGRAMS ${CEF_BINARY_DIR_RELEASE}/${binFile} DESTINATION bin/release )
-	endif()
-  endforeach()
-  foreach(resFile IN LISTS CEF_RESOURCE_FILES)
-	if(IS_DIRECTORY ${CEF_RESOURCE_DIR}/${resFile} )
-	  install( DIRECTORY  ${CEF_RESOURCE_DIR}/${resFile}  DESTINATION resources)
-	else()
-	  install( FILES ${CEF_RESOURCE_DIR}/${resFile}  DESTINATION resources)
-	endif()
-  endforeach()
 endif()
