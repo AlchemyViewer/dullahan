@@ -140,21 +140,21 @@ std::string dullahan::makeCompatibleUserAgentString(const std::string base)
     return mImpl->makeCompatibleUserAgentString(base);
 }
 
-void dullahan::mouseMove(int x, int y)
+void dullahan::mouseMove(int x, int y, bool mouse_leave, uint32_t modifiers)
 {
-    mImpl->mouseMove(x, y);
+    mImpl->mouseMove(x, y, mouse_leave, modifiers);
 }
 
 void dullahan::mouseButton(EMouseButton mouse_button,
                            EMouseEvent mouse_event,
-                           int x, int y)
+                           int x, int y, uint32_t modifiers)
 {
-    mImpl->mouseButton(mouse_button, mouse_event, x, y);
+    mImpl->mouseButton(mouse_button, mouse_event, x, y, modifiers);
 }
 
-void dullahan::mouseWheel(int x, int y, int delta_x, int delta_y)
+void dullahan::mouseWheel(int x, int y, int delta_x, int delta_y, uint32_t modifiers)
 {
-    mImpl->mouseWheel(x, y, delta_x, delta_y);
+    mImpl->mouseWheel(x, y, delta_x, delta_y, modifiers);
 }
 
 void dullahan::nativeKeyboardEventWin(uint32_t msg,

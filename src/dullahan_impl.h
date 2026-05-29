@@ -80,9 +80,12 @@ class dullahan_impl :
         std::string makeCompatibleUserAgentString(const std::string base);
 
         void mouseButton(dullahan::EMouseButton mouse_button,
-                         dullahan::EMouseEvent mouse_event, int x, int y);
-        void mouseMove(int x, int y);
-        void mouseWheel(int x, int y, int deltaX, int deltaY);
+                         dullahan::EMouseEvent mouse_event, int x, int y,
+                         uint32_t modifiers = dullahan::KM_MODIFIER_NONE);
+        void mouseMove(int x, int y, bool mouse_leave = false,
+                       uint32_t modifiers = dullahan::KM_MODIFIER_NONE);
+        void mouseWheel(int x, int y, int deltaX, int deltaY,
+                        uint32_t modifiers = dullahan::KM_MODIFIER_NONE);
 
         void nativeKeyboardEventWin(uint32_t msg, uint32_t wparam, uint64_t lparam);
         void nativeKeyboardEventOSX(void* event);
@@ -131,6 +134,8 @@ class dullahan_impl :
 
         bool getFlipPixelsY();
         bool getFlipMouseY();
+        // apply the flip-mouse-Y setting to a y coordinate (no-op when disabled)
+        int flipMouseY(int y);
 
         void requestPageZoom();
 
@@ -177,6 +182,9 @@ class dullahan_impl :
         bool mFakeUIForMediaStream;
         bool mFlipPixelsY;
         bool mFlipMouseY;
+        // bitmask of EVENTFLAG_*_MOUSE_BUTTON for buttons currently held down,
+        // tracked across mouseButton() calls so move/wheel events report drag state
+        uint32_t mHeldButtons = 0;
         double mRequestedPageZoom;
         const int mViewDepth = 4;
         std::vector<std::string> mCustomSchemes;

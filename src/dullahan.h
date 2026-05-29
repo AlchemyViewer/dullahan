@@ -254,11 +254,22 @@ class dullahan
         std::string makeCompatibleUserAgentString(const std::string base);
 
         // mouse input
+        // 'modifiers' is a bitmask of EKeyboardModifier values (KM_MODIFIER_*)
+        // describing the keyboard modifiers held while the event occurred.
+        // Dullahan additionally tracks which mouse buttons are currently held
+        // (from mouseButton down/up) and folds that into the event sent to CEF
+        // so drags, text selection and modified clicks behave correctly.
         void mouseButton(EMouseButton mouse_button,
                          EMouseEvent mouse_event,
-                         int x, int y);
-        void mouseMove(int x, int y);
-        void mouseWheel(int x, int y, int delta_x, int delta_y);
+                         int x, int y,
+                         uint32_t modifiers = KM_MODIFIER_NONE);
+        // 'mouse_leave' tells the page the pointer has left the view so hover
+        // states / tooltips reset.
+        void mouseMove(int x, int y,
+                       bool mouse_leave = false,
+                       uint32_t modifiers = KM_MODIFIER_NONE);
+        void mouseWheel(int x, int y, int delta_x, int delta_y,
+                        uint32_t modifiers = KM_MODIFIER_NONE);
 
         // keyboard input
         void nativeKeyboardEventWin(uint32_t msg, uint32_t wparam, uint64_t lparam);

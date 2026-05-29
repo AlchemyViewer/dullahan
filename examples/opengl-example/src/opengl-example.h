@@ -57,7 +57,7 @@ class openglExample
         bool run();
         void draw();
         void resizeCallback(int width, int height);
-        void mouseButtonCallback(Uint8 sdl_button, bool down);
+        void mouseButtonCallback(Uint8 sdl_button, bool down, int clicks);
         void mouseMoveCallback(float xpos, float ypos);
         void mouseScrollCallback(float xoffset, float yoffset);
         void keyboardEvent(SDL_Keycode key, SDL_Scancode scancode, SDL_Keymod mod, bool down);
@@ -102,5 +102,18 @@ class openglExample
         int mTextureHeight = 1024;
         dullahan* mDullahan;
 
+        // mouse-drag capture: once a button goes down on the page quad we keep
+        // routing moves and the eventual up to the browser - even if the cursor
+        // leaves the quad - so scrollbar drags and text selection don't get stuck.
+        bool mMouseCaptured = false;
+        Uint8 mCaptureSdlButton = 0;
+        int mCaptureTexX = 0;
+        int mCaptureTexY = 0;
+        // tracks whether the cursor was last over the quad, so we can send a
+        // single mouse-leave to the page when it moves off.
+        bool mWasInsideQuad = false;
+
+        // returns true if the cursor is over the quad; tx/ty are always set to
+        // the clamped texture coordinate of the ray/plane hit when one exists.
         bool pick(int* tx, int* ty);
 };

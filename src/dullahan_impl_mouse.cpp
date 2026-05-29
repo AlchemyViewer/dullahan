@@ -26,18 +26,61 @@
 
 #include "dullahan_impl.h"
 
+namespace
+{
+    // Map a dullahan mouse button to its CEF "button currently held" event flag.
+    uint32_t buttonEventFlag(dullahan::EMouseButton mouse_button)
+    {
+        switch (mouse_button)
+        {
+            case dullahan::MB_MOUSE_BUTTON_RIGHT:
+                return EVENTFLAG_RIGHT_MOUSE_BUTTON;
+            case dullahan::MB_MOUSE_BUTTON_MIDDLE:
+                return EVENTFLAG_MIDDLE_MOUSE_BUTTON;
+            case dullahan::MB_MOUSE_BUTTON_LEFT:
+            default:
+                return EVENTFLAG_LEFT_MOUSE_BUTTON;
+        }
+    }
+
+    // Build the CefMouseEvent.modifiers bitmask from the keyboard modifiers the
+    // caller supplied plus the set of mouse buttons dullahan knows are held.
+    uint32_t toCefModifiers(uint32_t dullahan_modifiers, uint32_t held_buttons)
+    {
+        uint32_t flags = held_buttons;
+        if (dullahan_modifiers & dullahan::KM_MODIFIER_SHIFT)
+        {
+            flags |= EVENTFLAG_SHIFT_DOWN;
+        }
+        if (dullahan_modifiers & dullahan::KM_MODIFIER_CONTROL)
+        {
+            flags |= EVENTFLAG_CONTROL_DOWN;
+        }
+        if (dullahan_modifiers & dullahan::KM_MODIFIER_ALT)
+        {
+            flags |= EVENTFLAG_ALT_DOWN;
+        }
+        if (dullahan_modifiers & dullahan::KM_MODIFIER_META)
+        {
+            flags |= EVENTFLAG_COMMAND_DOWN;
+        }
+        return flags;
+    }
+}
+
+int dullahan_impl::flipMouseY(int y)
+{
+    // -1 keeps the result in [0, mViewHeight - 1] for a y in the same range
+    return getFlipMouseY() ? (mViewHeight - 1 - y) : y;
+}
+
 void dullahan_impl::mouseButton(dullahan::EMouseButton mouse_button,
-                                dullahan::EMouseEvent mouse_event, int x, int y)
+                                dullahan::EMouseEvent mouse_event, int x, int y,
+                                uint32_t modifiers)
 {
     // send to CEF
     if (mBrowser && mBrowser->GetHost())
     {
-        // set click location
-        CefMouseEvent cef_mouse_event;
-        cef_mouse_event.x = x;
-        cef_mouse_event.y = getFlipMouseY() ? (mViewHeight - y) : y;
-        cef_mouse_event.modifiers = EVENTFLAG_LEFT_MOUSE_BUTTON;
-
         // set button
         CefBrowserHost::MouseButtonType btnType = MBT_LEFT;
         if (mouse_button == dullahan::MB_MOUSE_BUTTON_RIGHT)
@@ -62,32 +105,50 @@ void dullahan_impl::mouseButton(dullahan::EMouseButton mouse_button,
             is_up = false;
         }
 
+        // track which buttons are held so subsequent move/wheel events carry
+        // the correct drag state. Update before building the modifiers so a
+        // button-down includes its own flag and a button-up omits it.
+        const uint32_t button_flag = buttonEventFlag(mouse_button);
+        if (is_up)
+        {
+            mHeldButtons &= ~button_flag;
+        }
+        else
+        {
+            mHeldButtons |= button_flag;
+        }
+
+        // set click location
+        CefMouseEvent cef_mouse_event;
+        cef_mouse_event.x = x;
+        cef_mouse_event.y = flipMouseY(y);
+        cef_mouse_event.modifiers = toCefModifiers(modifiers, mHeldButtons);
+
         mBrowser->GetHost()->SendMouseClickEvent(cef_mouse_event, btnType, is_up, last_click_count);
     }
-};
+}
 
-void dullahan_impl::mouseMove(int x, int y)
+void dullahan_impl::mouseMove(int x, int y, bool mouse_leave, uint32_t modifiers)
 {
     if (mBrowser && mBrowser->GetHost())
     {
         CefMouseEvent cef_mouse_event;
         cef_mouse_event.x = x;
-        cef_mouse_event.y = getFlipMouseY() ? (mViewHeight - y) : y;
-        cef_mouse_event.modifiers = EVENTFLAG_LEFT_MOUSE_BUTTON;
+        cef_mouse_event.y = flipMouseY(y);
+        cef_mouse_event.modifiers = toCefModifiers(modifiers, mHeldButtons);
 
-        bool mouse_leave = false;
         mBrowser->GetHost()->SendMouseMoveEvent(cef_mouse_event, mouse_leave);
     }
-};
+}
 
-void dullahan_impl::mouseWheel(int x, int y, int deltaX, int deltaY)
+void dullahan_impl::mouseWheel(int x, int y, int deltaX, int deltaY, uint32_t modifiers)
 {
     if (mBrowser && mBrowser->GetHost())
     {
-        CefMouseEvent mouse_event;
-        mouse_event.x = x;
-        mouse_event.y = getFlipMouseY() ? (mViewHeight - y) : y;
-        mouse_event.modifiers = EVENTFLAG_LEFT_MOUSE_BUTTON;
-        mBrowser->GetHost()->SendMouseWheelEvent(mouse_event, deltaX, deltaY);
+        CefMouseEvent cef_mouse_event;
+        cef_mouse_event.x = x;
+        cef_mouse_event.y = flipMouseY(y);
+        cef_mouse_event.modifiers = toCefModifiers(modifiers, mHeldButtons);
+        mBrowser->GetHost()->SendMouseWheelEvent(cef_mouse_event, deltaX, deltaY);
     }
 }

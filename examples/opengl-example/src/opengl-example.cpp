@@ -41,6 +41,48 @@
 
 #include "dullahan.h"
 
+namespace
+{
+    // Map an SDL mouse button to the matching dullahan button.
+    dullahan::EMouseButton sdlToDullahanButton(Uint8 sdl_button)
+    {
+        if (sdl_button == SDL_BUTTON_RIGHT)
+        {
+            return dullahan::MB_MOUSE_BUTTON_RIGHT;
+        }
+        if (sdl_button == SDL_BUTTON_MIDDLE)
+        {
+            return dullahan::MB_MOUSE_BUTTON_MIDDLE;
+        }
+        return dullahan::MB_MOUSE_BUTTON_LEFT;
+    }
+
+    // Translate the live SDL keyboard modifier state into dullahan's modifier
+    // bitmask so modified clicks/drags/scrolls reach the page correctly.
+    uint32_t currentDullahanModifiers()
+    {
+        SDL_Keymod km = SDL_GetModState();
+        uint32_t mods = 0;
+        if (km & SDL_KMOD_SHIFT)
+        {
+            mods |= dullahan::KM_MODIFIER_SHIFT;
+        }
+        if (km & SDL_KMOD_CTRL)
+        {
+            mods |= dullahan::KM_MODIFIER_CONTROL;
+        }
+        if (km & SDL_KMOD_ALT)
+        {
+            mods |= dullahan::KM_MODIFIER_ALT;
+        }
+        if (km & SDL_KMOD_GUI)
+        {
+            mods |= dullahan::KM_MODIFIER_META;
+        }
+        return mods;
+    }
+}
+
 openglExample::openglExample() :
     mWindow(nullptr),
     mGLContext(nullptr),
@@ -74,66 +116,91 @@ void openglExample::resizeCallback(int width, int height)
     }
 }
 
-void openglExample::mouseButtonCallback(Uint8 sdl_button, bool down)
+void openglExample::mouseButtonCallback(Uint8 sdl_button, bool down, int clicks)
 {
-    int width;
-    int height;
-    SDL_GetWindowSize(mWindow, &width, &height);
-
-    float fxpos;
-    float fypos;
-    SDL_GetMouseState(&fxpos, &fypos);
-    double xpos = (double)fxpos;
-    double ypos = (double)fypos;
+    // Releasing a button that started an in-progress page drag always completes
+    // on the browser - even if Ctrl is now held or the cursor left the quad -
+    // otherwise the page thinks the button is still down (stuck selection/drag).
+    if (! down && mMouseCaptured && sdl_button == mCaptureSdlButton)
+    {
+        int tx = mCaptureTexX;
+        int ty = mCaptureTexY;
+        pick(&tx, &ty);   // leaves tx/ty clamped to the nearest valid hit
+        mDullahan->mouseButton(sdlToDullahanButton(mCaptureSdlButton),
+                               dullahan::ME_MOUSE_UP, tx, ty, currentDullahanModifiers());
+        mMouseCaptured = false;
+        return;
+    }
 
     if (SDL_GetModState() & SDL_KMOD_CTRL)
     {
+        int width;
+        int height;
+        SDL_GetWindowSize(mWindow, &width, &height);
+
+        float fxpos;
+        float fypos;
+        SDL_GetMouseState(&fxpos, &fypos);
+        double xpos = (double)fxpos;
+        double ypos = (double)fypos;
+
         mMouseOffsetStartX = xpos / (double)width;
 
-        if (sdl_button == SDL_BUTTON_LEFT)
+        if (sdl_button == SDL_BUTTON_LEFT && down)
         {
-            if (down)
-            {
-                mMouseOffsetStartY = ypos / (double)height;
-                mXRotationStart = mXRotation;
-                mYRotationStart = mYRotation;
-            }
+            mMouseOffsetStartY = ypos / (double)height;
+            mXRotationStart = mXRotation;
+            mYRotationStart = mYRotation;
         }
-        if (sdl_button == SDL_BUTTON_RIGHT)
+        if (sdl_button == SDL_BUTTON_RIGHT && down)
         {
-            if (down)
-            {
-                mMouseOffsetStartY = ((double)height - ypos) / (double)height;
-                mXPanStart = mXPan;
-                mYPanStart = mYPan;
-            }
+            mMouseOffsetStartY = ((double)height - ypos) / (double)height;
+            mXPanStart = mXPan;
+            mYPanStart = mYPan;
         }
+        return;
     }
-    else
+
+    // page interaction: only start a press when the cursor is over the quad
+    int tx = 0;
+    int ty = 0;
+    if (down && pick(&tx, &ty))
     {
-        int tx;
-        int ty;
-        // ray-cast the cursor onto the page quad
-        if (pick(&tx, &ty))
-        {
-            mDullahan->mouseButton(
-                dullahan::MB_MOUSE_BUTTON_LEFT,
-                down ? dullahan::ME_MOUSE_DOWN : dullahan::ME_MOUSE_UP,
-                tx, ty);
-        }
+        dullahan::EMouseEvent event = (clicks >= 2) ? dullahan::ME_MOUSE_DOUBLE_CLICK
+                                                    : dullahan::ME_MOUSE_DOWN;
+        mDullahan->mouseButton(sdlToDullahanButton(sdl_button), event, tx, ty,
+                               currentDullahanModifiers());
+
+        mMouseCaptured = true;
+        mCaptureSdlButton = sdl_button;
+        mCaptureTexX = tx;
+        mCaptureTexY = ty;
     }
 }
 
 void openglExample::mouseMoveCallback(float xpos, float ypos)
 {
-    int width;
-    int height;
-    SDL_GetWindowSize(mWindow, &width, &height);
-
-    SDL_MouseButtonFlags buttons = SDL_GetMouseState(nullptr, nullptr);
+    // An active page drag keeps streaming moves to the browser regardless of
+    // Ctrl state or whether the cursor is still over the quad.
+    if (mMouseCaptured)
+    {
+        int tx = mCaptureTexX;
+        int ty = mCaptureTexY;
+        pick(&tx, &ty);
+        mDullahan->mouseMove(tx, ty, false, currentDullahanModifiers());
+        mCaptureTexX = tx;
+        mCaptureTexY = ty;
+        return;
+    }
 
     if (SDL_GetModState() & SDL_KMOD_CTRL)
     {
+        int width;
+        int height;
+        SDL_GetWindowSize(mWindow, &width, &height);
+
+        SDL_MouseButtonFlags buttons = SDL_GetMouseState(nullptr, nullptr);
+
         mMouseOffsetX = (double)xpos / (double)width;
 
         if (buttons & SDL_BUTTON_MASK(SDL_BUTTON_LEFT))
@@ -148,16 +215,23 @@ void openglExample::mouseMoveCallback(float xpos, float ypos)
             mXPan = mXPanStart + (mMouseOffsetX - mMouseOffsetStartX) * 5.0f;
             mYPan = mYPanStart + (mMouseOffsetY - mMouseOffsetStartY) * 5.0f;
         }
+        return;
     }
-    else
+
+    // plain hover: forward moves while over the quad, and send a single
+    // mouse-leave to reset :hover / tooltips when the cursor moves off it.
+    int tx = 0;
+    int ty = 0;
+    uint32_t mods = currentDullahanModifiers();
+    if (pick(&tx, &ty))
     {
-        int tx;
-        int ty;
-        // ray-cast the cursor onto the page quad
-        if (pick(&tx, &ty))
-        {
-            mDullahan->mouseMove(tx, ty);
-        }
+        mDullahan->mouseMove(tx, ty, false, mods);
+        mWasInsideQuad = true;
+    }
+    else if (mWasInsideQuad)
+    {
+        mDullahan->mouseMove(tx, ty, true, mods);
+        mWasInsideQuad = false;
     }
 }
 
@@ -183,7 +257,13 @@ void openglExample::mouseScrollCallback(float xoffset, float yoffset)
         // ray-cast the cursor onto the page quad
         if (pick(&tx, &ty))
         {
-            mDullahan->mouseWheel(tx, ty, (int)xoffset, (int)(yoffset * 20));
+            // Scale the (possibly fractional, e.g. trackpad) wheel deltas and
+            // round so small scrolls aren't truncated to zero. Negate to match
+            // the scroll direction the viewer's media plugin uses.
+            const double scale = 40.0;
+            int delta_x = -(int)std::lround((double)xoffset * scale);
+            int delta_y = -(int)std::lround((double)yoffset * scale);
+            mDullahan->mouseWheel(tx, ty, delta_x, delta_y, currentDullahanModifiers());
         }
     }
 }
@@ -427,15 +507,12 @@ bool openglExample::pick(int* tx, int* ty)
     double hx = ox + t * dx;
     double hy = oy + t * dy;
 
-    // the quad spans [-1, 1] in x and y
-    if (hx < -1.0 || hx > 1.0 || hy < -1.0 || hy > 1.0)
-    {
-        *tx = -1;
-        *ty = -1;
-        return false;
-    }
+    // is the hit actually within the quad ([-1, 1] in x and y)?
+    bool inside = (hx >= -1.0 && hx <= 1.0 && hy >= -1.0 && hy <= 1.0);
 
-    // local hit position -> texture coordinate (matches the quad texcoords in draw())
+    // local hit position -> texture coordinate (matches the quad texcoords in
+    // draw()). Always clamp and return a usable coordinate so a drag that leaves
+    // the quad can keep tracking the nearest edge; the bool reports containment.
     double u = (hx + 1.0) * 0.5;
     double v = (1.0 - hy) * 0.5;
 
@@ -448,7 +525,7 @@ bool openglExample::pick(int* tx, int* ty)
 
     *tx = ix;
     *ty = iy;
-    return true;
+    return inside;
 }
 
 void openglExample::draw()
@@ -697,19 +774,21 @@ bool openglExample::run()
                 case SDL_EVENT_MOUSE_BUTTON_DOWN:
                     if (! ImGui::GetIO().WantCaptureMouse)
                     {
-                        mouseButtonCallback(event.button.button, true);
+                        mouseButtonCallback(event.button.button, true, event.button.clicks);
                     }
                     break;
 
                 case SDL_EVENT_MOUSE_BUTTON_UP:
-                    if (! ImGui::GetIO().WantCaptureMouse)
+                    // let an in-progress page drag finish even if it ends over
+                    // the ImGui UI, else the browser stays in a dragging state
+                    if (mMouseCaptured || ! ImGui::GetIO().WantCaptureMouse)
                     {
-                        mouseButtonCallback(event.button.button, false);
+                        mouseButtonCallback(event.button.button, false, event.button.clicks);
                     }
                     break;
 
                 case SDL_EVENT_MOUSE_MOTION:
-                    if (! ImGui::GetIO().WantCaptureMouse)
+                    if (mMouseCaptured || ! ImGui::GetIO().WantCaptureMouse)
                     {
                         mouseMoveCallback(event.motion.x, event.motion.y);
                     }
@@ -718,7 +797,16 @@ bool openglExample::run()
                 case SDL_EVENT_MOUSE_WHEEL:
                     if (! ImGui::GetIO().WantCaptureMouse)
                     {
-                        mouseScrollCallback(event.wheel.x, event.wheel.y);
+                        // SDL reports natural-scroll as FLIPPED rather than
+                        // pre-negating, so undo it here for a consistent sign.
+                        float wheel_x = event.wheel.x;
+                        float wheel_y = event.wheel.y;
+                        if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED)
+                        {
+                            wheel_x = -wheel_x;
+                            wheel_y = -wheel_y;
+                        }
+                        mouseScrollCallback(wheel_x, wheel_y);
                     }
                     break;
 
