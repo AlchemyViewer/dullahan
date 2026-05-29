@@ -160,7 +160,7 @@ endif()
 
 ###############################################################################
 # Examples
-if (BUILD_EXAMPLES)
+if (BUILD_DULLAHAN_EXAMPLE)
     set (THIRD-PARTY-PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/examples/opengl-example/third-party)
     set (GLAD_FOLDER "glad-0.1.36")
 
