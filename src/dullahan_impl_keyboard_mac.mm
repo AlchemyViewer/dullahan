@@ -33,31 +33,27 @@ namespace dullahanImplMacAssist
     uint32_t modifiersForModifierFlags(uint32_t modifierFlags)
     {
         uint32_t modifers = EVENTFLAG_NONE;
-        
+
         if (modifierFlags & NSEventModifierFlagCapsLock)
             modifers |= EVENTFLAG_CAPS_LOCK_ON;
-        
+
         if (modifierFlags & NSEventModifierFlagShift)
             modifers |= EVENTFLAG_SHIFT_DOWN;
-        
+
         if (modifierFlags & NSEventModifierFlagControl)
             modifers |= EVENTFLAG_CONTROL_DOWN;
-        
+
         if (modifierFlags & NSEventModifierFlagOption)
             modifers |= EVENTFLAG_ALT_DOWN;
-        
+
         if (modifierFlags & NSEventModifierFlagCommand)
             modifers |= EVENTFLAG_COMMAND_DOWN;
-        
+
         if (modifierFlags & NSEventModifierFlagNumericPad)
             modifers |= EVENTFLAG_IS_KEY_PAD;
-        
+
         return modifers;
     }
-}
-
-void dullahan_impl::nativeKeyboardEventWin(uint32_t msg, uint32_t wparam, uint64_t lparam)
-{
 }
 
 void dullahan_impl::nativeKeyboardEventOSX(void* event)
@@ -77,19 +73,19 @@ void dullahan_impl::nativeKeyboardEventOSX(void* event)
             if (([ns_event type] == NSEventTypeKeyDown) || ([ns_event type] == NSEventTypeKeyUp))
             {
                 CefKeyEvent keyEvent;
-                
+
                 NSString *c = [ns_event characters];
                 if ([c length] > 0)
                 {
                     keyEvent.character = [c characterAtIndex:0];
                 }
-                
+
                 NSString *cim = [ns_event charactersIgnoringModifiers];
                 if ([cim length] > 0)
                 {
                     keyEvent.unmodified_character = [cim characterAtIndex:0];
                 }
-                
+
                 keyEvent.native_key_code = [ns_event keyCode];
                 keyEvent.is_system_key = false;
                 keyEvent.modifiers = newModifiers;
@@ -133,7 +129,7 @@ void dullahan_impl::nativeKeyboardEventOSX(dullahan::EKeyEvent event_type,
             if (event_type == dullahan::KE_KEY_DOWN || event_type == dullahan::KE_KEY_UP)
             {
                 CefKeyEvent keyEvent;
-                
+
                 keyEvent.character = event_chars;
                 keyEvent.unmodified_character = event_umodchars;
                 keyEvent.native_key_code = event_keycode;
