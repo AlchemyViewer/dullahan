@@ -30,6 +30,7 @@
 #include <memory>
 #include <string>
 #include <functional>
+#include <cstdint>
 #include <vector>
 
 class dullahan_impl;
