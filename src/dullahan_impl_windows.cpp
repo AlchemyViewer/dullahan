@@ -1,3 +1,4 @@
+#include "dullahan_impl.h"
 
 void dullahan_impl::platormInitWidevine(std::string cachePath)
 {

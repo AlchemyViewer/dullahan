@@ -24,8 +24,6 @@
     THE SOFTWARE.
 */
 
-#define NOMINMAX
-
 #include "cef_app.h"
 
 #ifdef __linux__

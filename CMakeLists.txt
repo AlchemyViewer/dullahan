@@ -143,19 +143,29 @@ endif()
 # executable dir since they're needed at runtime
 
 if(WINDOWS)
+    # Copy plugin files to packaging directory
+    set(CEF_BIN_DIR "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/cef-bin")
     add_custom_command(
         TARGET dullahan_host POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory
-                "$<$<CONFIG:release>:${CEF_RELEASE_BIN_DIR}>"
-                "$<TARGET_FILE_DIR:dullahan_host>"
-        COMMENT "Copying runtime files to executable directory")
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_BIN_DIR}/Release" "$<TARGET_FILE_DIR:dullahan_host>"
+    )
+
+    set(CEF_RESOURCE_FILES
+        "${CEF_BIN_DIR}/Resources/chrome_100_percent.pak"
+        "${CEF_BIN_DIR}/Resources/chrome_200_percent.pak"
+        "${CEF_BIN_DIR}/Resources/resources.pak"
+        "${CEF_BIN_DIR}/Resources/icudtl.dat"
+    )
+    add_custom_command(
+        TARGET dullahan_host POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CEF_RESOURCE_FILES} "$<TARGET_FILE_DIR:dullahan_host>"
+        COMMAND_EXPAND_LISTS
+    )
 
     add_custom_command(
         TARGET dullahan_host POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory
-                "${CEF_RESOURCES_DIR}"
-                "$<TARGET_FILE_DIR:dullahan_host>"
-        COMMENT "Copying resource files to executable directory")
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_BIN_DIR}/Resources/locales" "$<TARGET_FILE_DIR:dullahan_host>/locales"
+    )
 endif()
 
 ###############################################################################
