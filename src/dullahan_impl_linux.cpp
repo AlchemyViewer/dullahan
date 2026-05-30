@@ -11,20 +11,6 @@
 #include <dirent.h>
 #include <iostream>
 
-namespace
-{
-    std::string getExeCwd()
-    {
-        char path[ 4096 ];
-        int len = readlink("/proc/self/exe", path, sizeof(path));
-        if (len == -1)
-            return "";
-
-        path[len] = 0;
-        return dirname(path) ;
-    }
-}
-
 void dullahan_impl::platormInitWidevine(std::string cachePath)
 {
 }

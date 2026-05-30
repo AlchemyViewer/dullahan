@@ -157,13 +157,16 @@ void dullahan::mouseWheel(int x, int y, int delta_x, int delta_y, uint32_t modif
     mImpl->mouseWheel(x, y, delta_x, delta_y, modifiers);
 }
 
+#if LL_WINDOWS
 void dullahan::nativeKeyboardEventWin(uint32_t msg,
                                       uint32_t wparam,
                                       uint64_t lparam)
 {
     mImpl->nativeKeyboardEventWin(msg, wparam, lparam);
 }
+#endif
 
+#if LL_DARWIN
 void dullahan::nativeKeyboardEventOSX(void* event)
 {
     mImpl->nativeKeyboardEventOSX(event);
@@ -180,6 +183,7 @@ void dullahan::nativeKeyboardEventOSX(EKeyEvent event_type,
                                   event_keycode, event_chars,
                                   event_umodchars, event_isrepeat);
 }
+#endif
 
 void dullahan::nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t native_scan_code, uint32_t native_virtual_key, uint32_t native_modifiers)
 {
@@ -358,8 +362,8 @@ void dullahan::setOnCursorChangedCallback(std::function<void(const ECursorType t
     mImpl->getCallbackManager()->setOnCursorChangedCallback(callback);
 }
 
-void dullahan::setOnCustomSchemeURLCallback(std::function<void(const std::string url, 
-                                            bool user_gesture, 
+void dullahan::setOnCustomSchemeURLCallback(std::function<void(const std::string url,
+                                            bool user_gesture,
                                             bool is_redirect)> callback)
 {
     mImpl->getCallbackManager()->setOnCustomSchemeURLCallback(callback);

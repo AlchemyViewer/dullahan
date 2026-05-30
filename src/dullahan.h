@@ -284,10 +284,14 @@ class dullahan
                         uint32_t modifiers = KM_MODIFIER_NONE);
 
         // keyboard input
+#if LL_WINDOWS
         void nativeKeyboardEventWin(uint32_t msg, uint32_t wparam, uint64_t lparam);
+#endif
+#if LL_DARWIN
         void nativeKeyboardEventOSX(void* event);
         void nativeKeyboardEventOSX(dullahan::EKeyEvent event_type, uint32_t event_modifiers, uint32_t event_keycode,
                                     uint32_t event_chars, uint32_t event_umodchars, bool event_isrepeat);
+#endif
         void nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t native_scan_code, uint32_t native_virtual_key, uint32_t native_modifiers);
         // native_scan_code is the platform-dependent scancode (SDL_KeyboardEvent.raw):
         // the Mac virtual keycode on macOS, the X11/evdev keycode on Linux. CEF
@@ -367,7 +371,7 @@ class dullahan
 
         // custom URL scheme link is clicked (see setCustomSchemes(..))
         void setOnCustomSchemeURLCallback(std::function<void(const std::string url,
-                                          bool user_gesture, 
+                                          bool user_gesture,
                                           bool is_redirect)> callback);
 
         // HTTP auth request triggered

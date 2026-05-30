@@ -87,10 +87,14 @@ class dullahan_impl :
         void mouseWheel(int x, int y, int deltaX, int deltaY,
                         uint32_t modifiers = dullahan::KM_MODIFIER_NONE);
 
+#if LL_WINDOWS
         void nativeKeyboardEventWin(uint32_t msg, uint32_t wparam, uint64_t lparam);
+#endif
+#if LL_DARWIN
         void nativeKeyboardEventOSX(void* event);
         void nativeKeyboardEventOSX(dullahan::EKeyEvent event_type, uint32_t event_modifiers, uint32_t event_keycode,
                                     uint32_t event_chars, uint32_t event_umodchars, bool event_isrepeat);
+#endif
         void nativeKeyboardEvent(dullahan::EKeyEvent key_event, uint32_t native_scan_code, uint32_t native_virtual_key, uint32_t native_modifiers);
         void nativeKeyboardEventSDL2(dullahan::EKeyEvent key_event, uint32_t key_data, uint32_t key_modifiers, bool keypad_input, uint32_t native_scan_code = 0);
 

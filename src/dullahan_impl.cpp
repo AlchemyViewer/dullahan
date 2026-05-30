@@ -52,6 +52,33 @@
 #include <chrono>
 #include <thread>
 
+#if LL_LINUX
+#include <math.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <libgen.h>
+#include <pwd.h>
+#include <string>
+#include <fstream>
+#include <dirent.h>
+#include <iostream>
+
+namespace
+{
+    std::string getExeCwd()
+    {
+        char path[ 4096 ];
+        int len = readlink("/proc/self/exe", path, sizeof(path));
+        if (len == -1)
+            return "";
+
+        path[len] = 0;
+        return dirname(path) ;
+    }
+}
+#endif
+
 dullahan_impl::dullahan_impl() :
     mInitialized(false),
     mBrowser(nullptr),
