@@ -63,6 +63,15 @@ class dullahan_runtime :
 
         bool isInitialized() const { return mInitialized; }
 
+        // Provide the Windows sandbox information object (from the CEF bootstrap
+        // host's RunWinMain / a CefScopedSandboxInfo). When set, CefInitialize
+        // runs with the sandbox enabled and CEF re-launches this same executable
+        // image for its sub-processes (so browser_subprocess_path is not set).
+        // NULL (the default) keeps the legacy no-sandbox + dullahan_host helper
+        // behaviour. Must be called before the first acquire().
+        void setSandboxInfo(void* sandbox_info) { mSandboxInfo = sandbox_info; }
+        void* getSandboxInfo() const { return mSandboxInfo; }
+
         // shared message pump - see dullahan_impl::update() / run()
         void update();
         void run();
@@ -80,6 +89,7 @@ class dullahan_runtime :
 
         bool mInitialized;
         int  mLiveBrowsers;
+        void* mSandboxInfo;
 
         // process-global command-line flags, captured on the first acquire()
         bool mMediaStreamEnabled;

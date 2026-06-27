@@ -1256,15 +1256,52 @@ bool openglExample::reset()
     return true;
 }
 
-int main(int argc, char* argv[])
+namespace
 {
-    openglExample* app = new openglExample;
-
-    app->init();
-
-    app->run();
-
-    app->reset();
-
-    exit(EXIT_SUCCESS);
+    int runExample()
+    {
+        openglExample* app = new openglExample;
+        app->init();
+        app->run();
+        app->reset();
+        delete app;
+        return EXIT_SUCCESS;
+    }
 }
+
+#if defined(_WIN32)
+#include "cef_app.h"
+#include "cef_sandbox_win.h"   // RunWinMain prototype + CEF_BOOTSTRAP_EXPORT
+#include "cef_version_info.h"
+#include "dullahan_runtime.h"
+
+// On Windows the example is built as a DLL loaded by CEF's bootstrap executable
+// (shipped renamed to opengl-example.exe), which creates the Windows sandbox and
+// calls this exported entry, handing us the sandbox_info. We run CEF's
+// sub-process dispatch first - so the SAME image services the renderer/GPU/
+// utility processes, which the sandbox requires - then run the example in the
+// browser process with the sandbox enabled. This makes the example the
+// standalone proof of the sandboxed dullahan path.
+extern "C" CEF_BOOTSTRAP_EXPORT int RunWinMain(HINSTANCE hInstance,
+                                               LPTSTR /*lpCmdLine*/,
+                                               int /*nCmdShow*/,
+                                               void* sandbox_info,
+                                               cef_version_info_t* /*version_info*/)
+{
+    CefMainArgs main_args(hInstance);
+    CefRefPtr<CefApp> cef_app = &dullahan_runtime::instance();
+    int exit_code = CefExecuteProcess(main_args, cef_app, sandbox_info);
+    if (exit_code >= 0)
+    {
+        return exit_code;   // CEF sub-process
+    }
+
+    dullahan::setSandboxInfo(sandbox_info);
+    return runExample();
+}
+#else
+int main(int /*argc*/, char* /*argv*/[])
+{
+    return runExample();
+}
+#endif

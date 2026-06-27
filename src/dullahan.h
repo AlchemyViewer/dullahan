@@ -226,6 +226,13 @@ class dullahan
         // initialize everything - call before anything else
         bool init(dullahan_settings& user_settings);
 
+        // Set the Windows sandbox information object for the process-global CEF
+        // runtime, before the first init(). Forwarded from a CEF bootstrap
+        // host's RunWinMain (or a CefScopedSandboxInfo). When set, CEF runs
+        // sandboxed and re-launches this executable image for its sub-processes.
+        // NULL (the default) means no sandbox. Has no effect once CEF is up.
+        static void setSandboxInfo(void* sandbox_info);
+
         // close down CEF - call just before you exit
         void shutdown();
 

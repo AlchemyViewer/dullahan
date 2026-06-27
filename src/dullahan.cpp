@@ -26,6 +26,7 @@
 
 #include "dullahan.h"
 #include "dullahan_impl.h"
+#include "dullahan_runtime.h"
 #include "dullahan_debug.h"
 #include "dullahan_callback_manager.h"
 
@@ -43,6 +44,12 @@ dullahan::~dullahan()
 bool dullahan::init(dullahan_settings& user_settings)
 {
     return mImpl->init(user_settings);
+}
+
+// static
+void dullahan::setSandboxInfo(void* sandbox_info)
+{
+    dullahan_runtime::instance().setSandboxInfo(sandbox_info);
 }
 
 void dullahan::shutdown()

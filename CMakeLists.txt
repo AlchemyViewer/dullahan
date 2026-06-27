@@ -196,15 +196,28 @@ if (BUILD_DULLAHAN_EXAMPLE)
         set(OPENGL_EXAMPLE_PLATFORM_SRC examples/opengl-example/src/opengl-example-mac.mm)
     endif()
 
-    add_executable(
-        opengl-example
-        MACOSX_BUNDLE
-        examples/opengl-example/src/opengl-example.cpp
-        examples/opengl-example/src/opengl-example.h
-        ${OPENGL_EXAMPLE_PLATFORM_SRC}
-        examples/opengl-example/README.md
-        src/compatibility.manifest
-    )
+    # On Windows the example is a DLL (RunWinMain) loaded by CEF's bootstrap
+    # executable for the sandbox; elsewhere it is a plain executable.
+    if(WINDOWS)
+        add_library(
+            opengl-example
+            MODULE
+            examples/opengl-example/src/opengl-example.cpp
+            examples/opengl-example/src/opengl-example.h
+            ${OPENGL_EXAMPLE_PLATFORM_SRC}
+            examples/opengl-example/README.md
+        )
+    else()
+        add_executable(
+            opengl-example
+            MACOSX_BUNDLE
+            examples/opengl-example/src/opengl-example.cpp
+            examples/opengl-example/src/opengl-example.h
+            ${OPENGL_EXAMPLE_PLATFORM_SRC}
+            examples/opengl-example/README.md
+            src/compatibility.manifest
+        )
+    endif()
 
     target_include_directories(
         opengl-example
@@ -263,5 +276,14 @@ if (BUILD_DULLAHAN_EXAMPLE)
         add_dependencies(opengl-example dullahan_host)
     elseif(DARWIN)
         add_dependencies(opengl-example dullahan_host dullahan_host_alerts dullahan_host_gpu dullahan_host_renderer dullahan_host_plugin)
+    endif()
+
+    if(WINDOWS)
+        # Ship CEF's bootstrap.exe renamed to opengl-example.exe; matching base
+        # name makes it load opengl-example.dll and call our RunWinMain with the
+        # Windows sandbox info.
+        add_custom_command(TARGET opengl-example POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CEF_BIN_DIR}/Release/bootstrap.exe" "$<TARGET_FILE_DIR:opengl-example>/opengl-example.exe"
+        )
     endif()
 endif()
