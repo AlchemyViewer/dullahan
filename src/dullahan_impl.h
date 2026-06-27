@@ -43,18 +43,16 @@ class dullahan_render_handler;
 class dullahan_callback_manager;
 class CefRequestContext;
 
+// One offscreen CEF browser. The process-global CEF runtime (CefApp,
+// CefInitialize, the command-line flags and the message pump) lives in
+// dullahan_runtime, shared by every browser in the process - see
+// dullahan_runtime.h.
 class dullahan_impl :
-    public CefApp,
     public CefPdfPrintCallback
 {
-        void platormInitWidevine(std::string cachePath);
-        void platformAddCommandLines(CefRefPtr<CefCommandLine> command_line);
     public:
         dullahan_impl();
         ~dullahan_impl();
-
-        // CefApp overrides
-        virtual void OnBeforeCommandLineProcessing(const CefString& process_type, CefRefPtr<CefCommandLine> command_line) override;
 
         bool init(dullahan::dullahan_settings& user_settings);
         void shutdown();
@@ -163,8 +161,6 @@ class dullahan_impl :
         void OnPdfPrintFinished(const CefString& path, bool ok) override;
 
     private:
-        bool initCEF(dullahan::dullahan_settings& user_settings);
-
         CefRefPtr<dullahan_browser_client> mBrowserClient;
         CefRefPtr<dullahan_render_handler> mRenderHandler;
         CefRefPtr<CefRequestContext> mRequestContext;
@@ -174,16 +170,6 @@ class dullahan_impl :
         bool mInitialized;
         int mViewWidth;
         int mViewHeight;
-        std::string mProxyHostPort;
-        bool mMediaStreamEnabled;
-        bool mBeginFrameScheduling;
-        bool mForceWaveAudio;
-        bool mDisableGPU;
-        bool mDisableWebSecurity;
-        bool mAllowFileAccessFromFiles;
-        bool mUseMockKeyChain;
-        bool mAutoPlayWithoutGesture;
-        bool mFakeUIForMediaStream;
         bool mFlipPixelsY;
         bool mFlipMouseY;
         // bitmask of EVENTFLAG_*_MOUSE_BUTTON for buttons currently held down,

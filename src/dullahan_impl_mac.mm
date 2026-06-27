@@ -1,10 +1,10 @@
-#include "dullahan_impl.h"
+#include "dullahan_runtime.h"
 
-void dullahan_impl::platormInitWidevine(std::string cachePath)
+void dullahan_runtime::platormInitWidevine(std::string cachePath)
 {
 }
 
-void dullahan_impl::platformAddCommandLines(CefRefPtr<CefCommandLine> command_line)
+void dullahan_runtime::platformAddCommandLines(CefRefPtr<CefCommandLine> command_line)
 {
 }
 

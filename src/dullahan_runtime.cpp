@@ -1,0 +1,392 @@
+/*
+    @brief Dullahan - a headless browser rendering engine
+           based around the Chromium Embedded Framework
+
+           dullahan_runtime: the process-global CEF runtime (see header).
+
+    @author Callum Prentice 2017
+
+    Copyright (c) 2017, Linden Research, Inc.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+*/
+
+#ifdef __APPLE__
+#import <Cocoa/Cocoa.h>
+#endif
+
+#include "dullahan_runtime.h"
+#include "dullahan_debug.h"
+
+#ifdef __APPLE__
+#include "include/wrapper/cef_library_loader.h"
+#endif
+
+#if WIN32
+#include <winnls.h> // for WideCharToMultiByte
+#endif
+
+#include <vector>
+
+#if LL_LINUX
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <libgen.h>
+#include <iostream>
+#endif
+
+namespace
+{
+#ifdef WIN32
+    // copied from viewer's llstring.h
+    std::string convert_wide_to_string(const wchar_t* in, unsigned int code_page)
+    {
+        std::string out;
+        if (in)
+        {
+            int len_in = (int)wcslen(in);
+            int len_out = WideCharToMultiByte(code_page, 0, in, len_in, NULL, 0, 0, 0);
+            // We will need two more bytes for the double NULL ending
+            // created in WideCharToMultiByte().
+            char* pout = new char[len_out + 2];
+            memset(pout, 0, len_out + 2);
+            if (pout)
+            {
+                WideCharToMultiByte(code_page, 0, in, len_in, pout, len_out, 0, 0);
+                out.assign(pout);
+                delete[] pout;
+            }
+        }
+        return out;
+    }
+#endif
+
+#if LL_LINUX
+    std::string getExeCwd()
+    {
+        char path[ 4096 ];
+        int len = readlink("/proc/self/exe", path, sizeof(path));
+        if (len == -1)
+            return "";
+
+        path[len] = 0;
+        return dirname(path) ;
+    }
+#endif
+}
+
+// static
+dullahan_runtime& dullahan_runtime::instance()
+{
+    // Held alive for the life of the process by this CefRefPtr; CefInitialize()
+    // also retains a reference for as long as CEF is running.
+    static CefRefPtr<dullahan_runtime> sInstance(new dullahan_runtime());
+    return *sInstance;
+}
+
+dullahan_runtime::dullahan_runtime() :
+    mInitialized(false),
+    mLiveBrowsers(0),
+    mMediaStreamEnabled(false),
+    mBeginFrameScheduling(false),
+    mForceWaveAudio(false),
+    mDisableGPU(true),
+    mDisableWebSecurity(false),
+    mAllowFileAccessFromFiles(false),
+    mUseMockKeyChain(false),
+    mAutoPlayWithoutGesture(false),
+    mFakeUIForMediaStream(false)
+{
+    DLNOUT("dullahan_runtime::dullahan_runtime()");
+}
+
+bool dullahan_runtime::acquire(dullahan::dullahan_settings& user_settings)
+{
+    if (!mInitialized)
+    {
+        platormInitWidevine(user_settings.root_cache_path);
+
+        if (!initCEF(user_settings))
+        {
+            return false;
+        }
+
+        mInitialized = true;
+    }
+
+    ++mLiveBrowsers;
+    return mInitialized;
+}
+
+void dullahan_runtime::release()
+{
+    if (mLiveBrowsers > 0)
+    {
+        --mLiveBrowsers;
+    }
+
+    if (mLiveBrowsers == 0 && mInitialized)
+    {
+        CefShutdown();
+        mInitialized = false;
+    }
+}
+
+void dullahan_runtime::update()
+{
+    if (mInitialized)
+    {
+        CefDoMessageLoopWork();
+    }
+}
+
+void dullahan_runtime::run()
+{
+    CefRunMessageLoop();
+}
+
+void dullahan_runtime::OnBeforeCommandLineProcessing(const CefString& process_type,
+        CefRefPtr<CefCommandLine> command_line)
+{
+    if (process_type.empty())
+    {
+        if (mMediaStreamEnabled == true)
+        {
+            command_line->AppendSwitch("enable-media-stream");
+        }
+
+        if (mBeginFrameScheduling == true)
+        {
+            command_line->AppendSwitch("enable-begin-frame-scheduling");
+        }
+
+        // The ability to access local files used to be a member of CefBrowserSettings but
+        // now is is configured globally via command line switch (https://github.com/cefsharp/CefSharp/issues/3668)
+        if (mAllowFileAccessFromFiles == true)
+        {
+            command_line->AppendSwitch("allow-file-access-from-files");
+        }
+
+        // <ND> n.b. be careful enabling this. At least on Linux it will break sites like twitch.tv mixer.com, dlive.com.
+        // Probably this also makes only sense for Win32?
+        if (mDisableGPU == true)
+        {
+            command_line->AppendSwitch("disable-gpu");
+            command_line->AppendSwitch("disable-gpu-compositing");
+        }
+
+        if (mDisableWebSecurity)
+        {
+            command_line->AppendSwitch("disable-web-security");
+        }
+
+        if (mUseMockKeyChain)
+        {
+            command_line->AppendSwitch("use-mock-keychain");
+        }
+
+        if (mAutoPlayWithoutGesture)
+        {
+            command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
+        }
+
+        if (mFakeUIForMediaStream)
+        {
+            command_line->AppendSwitch("use-fake-ui-for-media-stream");
+        }
+
+        if (mProxyHostPort.length())
+        {
+            command_line->AppendSwitchWithValue("--proxy-server", mProxyHostPort);
+        }
+
+        platformAddCommandLines(command_line);
+    }
+}
+
+bool dullahan_runtime::initCEF(dullahan::dullahan_settings& user_settings)
+{
+#ifdef WIN32
+    CefMainArgs args(GetModuleHandle(nullptr));
+#elif __APPLE__
+    CefScopedLibraryLoader library_loader;
+    if (!library_loader.LoadInMain())
+    {
+        return false;
+    }
+
+    CefMainArgs args(0, nullptr);
+#endif
+#ifdef __linux__
+    CefMainArgs args(0, nullptr);
+#endif
+
+    CefSettings settings;
+
+    // point to host application helper
+#ifdef WIN32
+    // Note: as of CEF 83, it appears that on Windows builds, the path to the host
+    // helper application must be an absolute path vs the existing, relative path.
+    // If the user has not specified a path to the helper explicitly, then we can,
+    // as a first pass, assume it's located next to the executable (it often is)
+    // and for use cases where it is located elsewhere, the consumer can specify
+    // the absolute path directly.
+    std::string host_process_path = user_settings.host_process_path;
+    if (host_process_path.empty())
+    {
+        // path is not specified so assume it's adjacent to the executable
+        std::vector<wchar_t> exe_path(MAX_PATH + 1);
+        GetModuleFileNameW(NULL, &exe_path[0], MAX_PATH);
+        std::string cur_exe_path = convert_wide_to_string(&exe_path[0], CP_UTF8);
+        const size_t last_slash_idx = cur_exe_path.find_last_of("\\/");
+        if (last_slash_idx == std::string::npos)
+        {
+            return false;
+        }
+        host_process_path = cur_exe_path.erase(last_slash_idx + 1);
+    }
+
+    // finally, tell CEF where to find the host process helper
+    CefString(&settings.browser_subprocess_path) = host_process_path + "\\" + user_settings.host_process_filename;
+
+    settings.no_sandbox = true;
+#elif __APPLE__
+    NSString* appBundlePath = [[NSBundle mainBundle] bundlePath];
+    CefString(&settings.browser_subprocess_path) =
+        [[NSString stringWithFormat:
+          @"%@/Contents/Frameworks/DullahanHelper.app/Contents/MacOS/DullahanHelper", appBundlePath] UTF8String];
+
+    CefString(&settings.framework_dir_path) =
+    [[NSString stringWithFormat:
+      @"%@/Contents/Frameworks/Chromium Embedded Framework.framework", appBundlePath] UTF8String];
+
+    settings.no_sandbox = true;
+#elif __linux__
+    CefString(&settings.browser_subprocess_path) = getExeCwd() + "/dullahan_host";
+    bool useSandbox = false;
+    std::string sandboxName = getExeCwd() + "/chrome-sandbox";
+    struct stat st;
+
+    if (!stat(sandboxName.c_str(), &st))
+    {
+        // Sandbox must be owned by root:root and has the suid bit set, otherwise cef won't use it.
+        if (st.st_uid == 0 && st.st_gid == 0 && (st.st_mode & S_ISUID) == S_ISUID)
+        {
+            useSandbox = true;
+        }
+    }
+
+    settings.no_sandbox = !useSandbox;
+#else
+#error "Unsupported Platform"
+#endif
+    // required for CEF 72+ to indicate headless
+    settings.windowless_rendering_enabled = true;
+
+    // CEF header file suggest that we need this now
+    settings.external_message_pump = true;
+
+    // use a single thread for the message loop
+    settings.multi_threaded_message_loop = false;
+
+    // act like a browser and do not persist session cookies ever
+    settings.persist_session_cookies = user_settings.cookies_enabled;
+
+    // explicitly set the path to the locales folder since defaults no longer work on some systems
+    CefString(&settings.locales_dir_path) = user_settings.locales_dir_path;
+
+    // set path to root cache if enabled and set
+    CefString(&settings.root_cache_path) = user_settings.root_cache_path;
+#ifdef WIN32
+    CefString(&settings.cache_path) = user_settings.root_cache_path + "\\" + "cache";
+#else
+    CefString(&settings.cache_path) = user_settings.root_cache_path + "/" + "cache";
+#endif
+
+    // as of CEF 90, the new way to disable cookies
+    if (user_settings.cookies_enabled == false)
+    {
+        CefString(&settings.cookieable_schemes_list) = "";
+        settings.cookieable_schemes_exclude_defaults = true;
+    }
+
+    // insert a new string into user agent. dullahan_impl::init() guarantees a
+    // resolved user-agent string is present before the runtime is acquired.
+    if (user_settings.user_agent_substring.length())
+    {
+        std::string user_agent(user_settings.user_agent_substring);
+        cef_string_utf8_to_utf16(user_agent.c_str(), user_agent.size(), &settings.user_agent_product);
+    }
+
+    // the proxy host:port to use
+    mProxyHostPort = user_settings.proxy_host_port;
+
+    // list of language locale codes used to configure the Accept-Language HTTP header value
+    if (user_settings.accept_language_list.length())
+    {
+        std::string accept_language_list(user_settings.accept_language_list);
+        cef_string_utf8_to_utf16(accept_language_list.c_str(),
+                                 accept_language_list.size(), &settings.accept_language_list);
+    }
+
+    // enable/disable media stream (web cams etc.)
+    // IMPORTANT: there is no "Use Your WebCam OK?" dialog so enable this at your peril
+    mMediaStreamEnabled = user_settings.media_stream_enabled;
+
+    // this flag needed for some video cards to force onPaints to work - off by default
+    mBeginFrameScheduling = user_settings.begin_frame_scheduling;
+
+#ifdef WIN32
+    // this flag forces Windows WaveOut/In audio API even if Core Audio is supported
+    mForceWaveAudio = user_settings.force_wave_audio;
+#endif
+
+    // this flag if set, adds command line options to disable the GPU and GPU compositing.
+    mDisableGPU = user_settings.disable_gpu;
+
+    // this flag if set, adds command line parameters to disable the web security component
+    mDisableWebSecurity = user_settings.disable_web_security;
+
+    // this flag allows access to local files - now must be set via the command line
+    mAllowFileAccessFromFiles = user_settings.file_access_from_file_urls;
+
+    // this flag if set, bypasses the macOS "Chrome wants access to passwords" dialog
+    mUseMockKeyChain = user_settings.use_mock_keychain;
+
+    // this flag, if set, allows video/audio to autoplay
+    mAutoPlayWithoutGesture = user_settings.autoplay_without_gesture;
+
+    // this flag, if set allows you to bypass UI like "This page wants to use your microphone"
+    mFakeUIForMediaStream = user_settings.fake_ui_for_media_stream;
+
+    // log file settings
+    CefString(&settings.log_file) = user_settings.log_file;
+    settings.log_severity = user_settings.log_verbose ? LOGSEVERITY_VERBOSE : LOGSEVERITY_DEFAULT;
+
+    if (user_settings.enable_remote_debug)
+    {
+        // allow Chrome (or other CEF windoW) to debug at http://localhost::PORT_NUMBER
+        settings.remote_debugging_port = user_settings.remote_debugging_port;
+    }
+
+    // initiaize CEF
+    bool result = CefInitialize(args, settings, this, nullptr);
+    return result;
+}

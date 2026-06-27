@@ -1,4 +1,4 @@
-#include "dullahan_impl.h"
+#include "dullahan_runtime.h"
 
 #include <math.h>
 #include <sys/types.h>
@@ -11,11 +11,11 @@
 #include <dirent.h>
 #include <iostream>
 
-void dullahan_impl::platormInitWidevine(std::string cachePath)
+void dullahan_runtime::platormInitWidevine(std::string cachePath)
 {
 }
 
-void dullahan_impl::platformAddCommandLines(CefRefPtr<CefCommandLine> command_line)
+void dullahan_runtime::platformAddCommandLines(CefRefPtr<CefCommandLine> command_line)
 {
     auto *pDisplay = getenv("DISPLAY");
     auto *pSessionType = getenv("XDG_SESSION_TYPE");

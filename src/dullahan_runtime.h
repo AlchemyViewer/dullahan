@@ -1,0 +1,99 @@
+/*
+    @brief Dullahan - a headless browser rendering engine
+           based around the Chromium Embedded Framework
+
+           dullahan_runtime: the process-global CEF runtime.
+
+           CEF allows exactly one CefInitialize() per process and a single
+           CefApp. This class owns both, reference counted across every
+           dullahan browser instance in the process, so that many browsers can
+           share one CEF runtime (the basis for the shared tab-manager daemon).
+           The first browser to acquire() configures the process-global
+           command-line flags; the last to release() shuts CEF down.
+
+    @author Callum Prentice 2017
+
+    Copyright (c) 2017, Linden Research, Inc.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+*/
+
+#ifndef _DULLAHAN_RUNTIME
+#define _DULLAHAN_RUNTIME
+
+#include <string>
+
+#include "cef_app.h"
+
+#include "dullahan.h"
+
+class dullahan_runtime :
+    public CefApp
+{
+    public:
+        // The process-wide singleton. Safe to call before CEF is initialized.
+        static dullahan_runtime& instance();
+
+        // Ensure CEF is initialized (idempotent) and register one live browser.
+        // The first successful call captures the process-global command-line
+        // flags and settings from user_settings; later calls reuse the running
+        // runtime and ignore their settings (CEF is process-global). Returns
+        // true if the CEF runtime is up.
+        bool acquire(dullahan::dullahan_settings& user_settings);
+
+        // Unregister one live browser. Shuts CEF down once the last live
+        // browser has been released.
+        void release();
+
+        bool isInitialized() const { return mInitialized; }
+
+        // shared message pump - see dullahan_impl::update() / run()
+        void update();
+        void run();
+
+        // CefApp overrides
+        void OnBeforeCommandLineProcessing(const CefString& process_type,
+                                           CefRefPtr<CefCommandLine> command_line) override;
+
+    private:
+        dullahan_runtime();
+
+        bool initCEF(dullahan::dullahan_settings& user_settings);
+        void platormInitWidevine(std::string cachePath);
+        void platformAddCommandLines(CefRefPtr<CefCommandLine> command_line);
+
+        bool mInitialized;
+        int  mLiveBrowsers;
+
+        // process-global command-line flags, captured on the first acquire()
+        bool mMediaStreamEnabled;
+        bool mBeginFrameScheduling;
+        bool mForceWaveAudio;
+        bool mDisableGPU;
+        bool mDisableWebSecurity;
+        bool mAllowFileAccessFromFiles;
+        bool mUseMockKeyChain;
+        bool mAutoPlayWithoutGesture;
+        bool mFakeUIForMediaStream;
+        std::string mProxyHostPort;
+
+        IMPLEMENT_REFCOUNTING(dullahan_runtime);
+};
+
+#endif // _DULLAHAN_RUNTIME

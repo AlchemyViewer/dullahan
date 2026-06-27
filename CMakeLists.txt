@@ -8,7 +8,9 @@ if(WINDOWS)
     set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_windows.cpp)
     set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_win.cpp)
 elseif(DARWIN)
-    set_source_files_properties(src/dullahan_impl.cpp PROPERTIES LANGUAGE OBJCXX)
+    # dullahan_impl.cpp and dullahan_runtime.cpp both use Cocoa (NSBundle) in
+    # their macOS paths, so compile them as Objective-C++.
+    set_source_files_properties(src/dullahan_impl.cpp src/dullahan_runtime.cpp PROPERTIES LANGUAGE OBJCXX)
     set(PLATFORM_IMPL_SRC_FILE src/dullahan_impl_mac.mm)
     set(KEYBOARD_IMPL_SRC_FILE src/dullahan_impl_keyboard_mac.mm)
 elseif(LINUX)
@@ -28,6 +30,8 @@ add_library(
     src/dullahan_debug.h
     src/dullahan_impl.cpp
     src/dullahan_impl.h
+    src/dullahan_runtime.cpp
+    src/dullahan_runtime.h
     src/dullahan_version.h
     src/dullahan_version.h.in
     ${PLATFORM_IMPL_SRC_FILE}
