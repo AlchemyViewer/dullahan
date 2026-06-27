@@ -34,6 +34,7 @@
 
 #include <string>
 #include <set>
+#include <vector>
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -71,7 +72,7 @@ class openglExample
         bool reset();
 
         // callbacks
-        void onPageChanged(const unsigned char* pixels, int x, int y, const int width, const int height);
+        void onPageChanged(int tab_index, const unsigned char* pixels, int x, int y, const int width, const int height);
         void onRequestExitCallback();
 
     private:
@@ -100,10 +101,32 @@ class openglExample
         const double mZoomSensitivity = 10.0;
         const double mZoomMin = -20.0;
         const double mZoomMax = -0.2;
+        // The active tab's browser + GL texture, mirrored from mTabs[mActiveTab]
+        // so the bulk of the example (input, picking, drawing, UI) keeps driving
+        // a single "current" browser.
         GLuint mTextureId;
         int mTextureWidth = 1024;
         int mTextureHeight = 1024;
         dullahan* mDullahan;
+
+        // One browser tab. Each tab is its own dullahan browser, but they all
+        // share a single process-global CEF runtime (dullahan_runtime) - this
+        // example doubles as the proof that multiple CEF browsers can live in one
+        // process, which the old one-CefInitialize-per-instance model forbade.
+        struct Tab
+        {
+            dullahan* browser = nullptr;
+            GLuint texture = 0;
+            int tex_width = 1024;
+            int tex_height = 1024;
+            std::string url;
+        };
+        std::vector<Tab> mTabs;
+        int mActiveTab = 0;
+
+        // switch the displayed tab: mirror it into mDullahan/mTextureId/... and
+        // move browser host focus to it.
+        void setActiveTab(int index);
 
         // mouse-drag capture: once a button goes down on the page quad we keep
         // routing moves and the eventual up to the browser - even if the cursor

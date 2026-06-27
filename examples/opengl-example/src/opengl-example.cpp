@@ -124,9 +124,13 @@ void openglExample::resizeCallback(int width, int height)
 
     glMatrixMode(GL_MODELVIEW);
 
-    if (mDullahan)
+    // every tab renders at the window size
+    for (auto& tab : mTabs)
     {
-        mDullahan->setSize(width, height);
+        if (tab.browser)
+        {
+            tab.browser->setSize(width, height);
+        }
     }
 }
 
@@ -349,6 +353,13 @@ bool openglExample::handleKeyboardShortcut(SDL_Keycode key, SDL_Keymod mod)
         case SDLK_R: mDullahan->reload(shift); return true;   // Shift = ignore cache
         case SDLK_LEFTBRACKET:  mDullahan->goBack();    return true;   // Cmd+[ back
         case SDLK_RIGHTBRACKET: mDullahan->goForward(); return true;   // Cmd+] forward
+        // Ctrl/Cmd+1..9 switches tabs, like a browser. setActiveTab() ignores
+        // out-of-range indices, so only existing tabs respond.
+        case SDLK_1: case SDLK_2: case SDLK_3:
+        case SDLK_4: case SDLK_5: case SDLK_6:
+        case SDLK_7: case SDLK_8: case SDLK_9:
+            setActiveTab((int)(key - SDLK_1));
+            return true;
         default:
             break;
     }
@@ -503,49 +514,72 @@ bool openglExample::init()
     SDL_GetWindowSizeInPixels(mWindow, &width, &height);
     resizeCallback(width, height);
 
-    // Texture used to display browser output on the quad
-    glGenTextures(1, &mTextureId);
-    glBindTexture(GL_TEXTURE_2D, mTextureId);
-
     initUI();
 
-    mDullahan = new dullahan();
+    // Create two browser tabs that deliberately share a single CEF runtime.
+    // Before the dullahan_runtime split each dullahan called its own
+    // CefInitialize() and only one could exist per process; now they coexist,
+    // which is exactly what the shared tab-manager daemon relies on. Switch
+    // between them with the Tabs menu or Ctrl+1 / Ctrl+2.
+    const std::string tab_urls[] = { mHomeUrl, "https://secondlife.com" };
+    const int num_tabs = (int)(sizeof(tab_urls) / sizeof(tab_urls[0]));
 
     // Modern way of generating random numbers - need this for making the CEF root_cache_folder unique
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distrib(100000, 999999);
-    int random_number = distrib(gen);
 
-    // As of CEF 139, the root cache folder must be unique and
-    // an absolute path - std::Filesystem to the rescue
-    std::filesystem::path root_cache_path = std::filesystem::absolute("./opengl-example-profile") / std::to_string(random_number);
-    std::filesystem::path log_path = root_cache_path / "opengl-example-cef.log";
+    int win_px_w, win_px_h;
+    SDL_GetWindowSizeInPixels(mWindow, &win_px_w, &win_px_h);
 
-    dullahan::dullahan_settings settings;
-    settings.log_file = log_path.string();
-    settings.root_cache_path = root_cache_path.string();
-    settings.initial_height = mTextureWidth;
-    settings.initial_width = mTextureHeight;
-    settings.disable_gpu = false;
+    for (int i = 0; i < num_tabs; ++i)
+    {
+        Tab tab;
+        tab.url = tab_urls[i];
+
+        // Texture used to display this tab's browser output on the quad
+        glGenTextures(1, &tab.texture);
+        glBindTexture(GL_TEXTURE_2D, tab.texture);
+
+        // As of CEF 139, the root cache folder must be unique and an absolute
+        // path. (Only the first browser's value is honoured once the shared
+        // runtime is up, but keep them distinct so standalone use stays correct.)
+        std::filesystem::path root_cache_path = std::filesystem::absolute("./opengl-example-profile") / std::to_string(distrib(gen));
+        std::filesystem::path log_path = root_cache_path / "opengl-example-cef.log";
+
+        dullahan::dullahan_settings settings;
+        settings.log_file = log_path.string();
+        settings.root_cache_path = root_cache_path.string();
+        settings.initial_width = mTextureWidth;
+        settings.initial_height = mTextureHeight;
+        settings.disable_gpu = false;
 #ifdef __APPLE__
-    settings.use_mock_keychain = true;
+        settings.use_mock_keychain = true;
 #endif
 
-    bool result = mDullahan->init(settings);
-    if (result)
-    {
-        mDullahan->setOnPageChangedCallback(std::bind(&openglExample::onPageChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
-        mDullahan->setOnRequestExitCallback(std::bind(&openglExample::onRequestExitCallback, this));
+        tab.browser = new dullahan();
+        if (tab.browser->init(settings))
+        {
+            const int tab_index = i;
+            tab.browser->setOnPageChangedCallback(
+                [this, tab_index](const unsigned char* pixels, int x, int y, int width, int height)
+                {
+                    onPageChanged(tab_index, pixels, x, y, width, height);
+                });
+            tab.browser->setOnRequestExitCallback(std::bind(&openglExample::onRequestExitCallback, this));
 
-        mDullahan->navigate(mHomeUrl);
+            tab.browser->navigate(tab.url);
 
-        // Render the page at the current window size from the start rather than
-        // being limited to the initial offscreen size above.
-        int win_px_w, win_px_h;
-        SDL_GetWindowSizeInPixels(mWindow, &win_px_w, &win_px_h);
-        mDullahan->setSize(win_px_w, win_px_h);
+            // Render the page at the current window size from the start rather
+            // than being limited to the initial offscreen size above.
+            tab.browser->setSize(win_px_w, win_px_h);
+        }
+
+        mTabs.push_back(tab);
     }
+
+    // show the first tab
+    setActiveTab(0);
 
     return true;
 }
@@ -686,17 +720,56 @@ void openglExample::draw()
     glEnd();
 }
 
-// Triggered when browser page content changes
-void openglExample::onPageChanged(const unsigned char* pixels, int x, int y, const int width, const int height)
+// Triggered when a tab's browser page content changes. The tab index is bound
+// into the per-browser callback so a background tab still paints into its own
+// texture without disturbing the displayed one.
+void openglExample::onPageChanged(int tab_index, const unsigned char* pixels, int x, int y, const int width, const int height)
 {
-    // CEF can change its render size at runtime (e.g. when the window is resized
-    // and resizeCallback() calls setSize()) so track the size (pick() needs it)
-    // and upload the frame at its reported dimensions.
-    mTextureWidth = width;
-    mTextureHeight = height;
+    if (tab_index < 0 || tab_index >= (int)mTabs.size())
+    {
+        return;
+    }
 
-    glBindTexture(GL_TEXTURE_2D, (GLuint)mTextureId);
+    // CEF can change its render size at runtime (e.g. when the window is resized
+    // and resizeCallback() calls setSize()) so track each tab's size and upload
+    // the frame to that tab's own texture.
+    Tab& tab = mTabs[tab_index];
+    tab.tex_width = width;
+    tab.tex_height = height;
+
+    glBindTexture(GL_TEXTURE_2D, tab.texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)width, (GLsizei)height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+
+    // keep the active-tab display mirror in sync so pick() stays accurate
+    if (tab_index == mActiveTab)
+    {
+        mTextureWidth = width;
+        mTextureHeight = height;
+    }
+}
+
+// Switch the displayed tab. The rest of the example drives a single "current"
+// browser via mDullahan / mTextureId / mTextureWidth / mTextureHeight, so
+// mirror the chosen tab into those and give its browser host focus.
+void openglExample::setActiveTab(int index)
+{
+    if (index < 0 || index >= (int)mTabs.size())
+    {
+        return;
+    }
+
+    mActiveTab = index;
+
+    Tab& tab = mTabs[index];
+    mDullahan = tab.browser;
+    mTextureId = tab.texture;
+    mTextureWidth = tab.tex_width;
+    mTextureHeight = tab.tex_height;
+
+    if (mDullahan)
+    {
+        mDullahan->setFocus(true);
+    }
 }
 
 // Triggered by Dullahan when cleanup is complete and it's okay to exit
@@ -775,6 +848,20 @@ void openglExample::updateUI()
                     mDullahan->setPageZoom(2.0);
                 }
                 ImGui::EndMenu();
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Tabs"))
+        {
+            // Each tab is a separate CEF browser sharing one process-global CEF
+            // runtime; the checkmark marks the displayed one.
+            for (int i = 0; i < (int)mTabs.size(); ++i)
+            {
+                std::string label = "Tab " + std::to_string(i + 1) + "  (Ctrl+" + std::to_string(i + 1) + ")";
+                if (ImGui::MenuItem(label.c_str(), nullptr, i == mActiveTab))
+                {
+                    setActiveTab(i);
+                }
             }
             ImGui::EndMenu();
         }
@@ -1124,12 +1211,17 @@ bool openglExample::run()
             }
         }
 
-        if (mDullahan)
+        // pump every tab; they share one CEF runtime so this drives the single
+        // shared message loop plus each browser's per-page upkeep (zoom etc.).
+        for (auto& tab : mTabs)
         {
-            mDullahan->update();
+            if (tab.browser)
+            {
+                tab.browser->update();
+            }
         }
 
-        // draw the browser output
+        // draw the active tab's browser output
         draw();
 
         updateUI();
