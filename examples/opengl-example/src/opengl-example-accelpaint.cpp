@@ -72,7 +72,6 @@ namespace
     // into it (CopyResource - no CPU readback, so still zero-copy CPU-side).
     struct TexState
     {
-        std::unordered_map<void*, ID3D11Texture2D*> opened;   // CEF textures by handle
         ID3D11Texture2D* interop = nullptr;                   // our texture, GL-registered
         HANDLE obj = nullptr;                                 // wglDXRegisterObjectNV handle
         int width = 0;
@@ -87,6 +86,7 @@ namespace
         ID3D11Device1* device1 = nullptr;
         ID3D11DeviceContext* context = nullptr;
         HANDLE wgl_device = nullptr;
+        ID3D11Query* copy_fence = nullptr;   // event query: wait for a copy to finish
 
         PFN_wglDXOpenDeviceNV       wglDXOpenDeviceNV = nullptr;
         PFN_wglDXCloseDeviceNV      wglDXCloseDeviceNV = nullptr;
@@ -207,11 +207,29 @@ namespace
             }
             if (ts.obj) { wglDXUnregisterObjectNV(wgl_device, ts.obj); ts.obj = nullptr; }
             if (ts.interop) { ts.interop->Release(); ts.interop = nullptr; }
-            for (auto& kv : ts.opened)
+        }
+
+        // Block until previously-submitted GPU work (our CopyResource) has
+        // executed. Needed because CEF recycles the shared texture once the
+        // OnAcceleratedPaint callback returns and it carries no keyed mutex, so we
+        // must finish reading it before returning.
+        void waitForCopy()
+        {
+            if (!copy_fence)
             {
-                if (kv.second) kv.second->Release();
+                context->Flush();
+                return;
             }
-            ts.opened.clear();
+            context->End(copy_fence);
+            context->Flush();
+            BOOL done = FALSE;
+            for (int i = 0; i < 1000000; ++i)
+            {
+                if (context->GetData(copy_fence, &done, sizeof(done), 0) == S_OK)
+                {
+                    break;
+                }
+            }
         }
     };
 }
@@ -271,6 +289,12 @@ bool AcceleratedPaintInterop::init()
         return false;
     }
 
+    {
+        D3D11_QUERY_DESC qd = {};
+        qd.Query = D3D11_QUERY_EVENT;
+        w->device->CreateQuery(&qd, &w->copy_fence);   // best-effort; waitForCopy falls back to Flush
+    }
+
     mImpl = w;
     mValid = true;
     apLog("[accelpaint] zero-copy paint enabled (D3D11 + WGL_NV_DX_interop2)");
@@ -291,6 +315,7 @@ void AcceleratedPaintInterop::shutdown()
     }
     w->textures.clear();
 
+    if (w->copy_fence) { w->copy_fence->Release(); w->copy_fence = nullptr; }
     if (w->wgl_device) { w->wglDXCloseDeviceNV(w->wgl_device); w->wgl_device = nullptr; }
     if (w->device1) { w->device1->Release(); w->device1 = nullptr; }
     if (w->context) { w->context->Release(); w->context = nullptr; }
@@ -312,22 +337,14 @@ bool AcceleratedPaintInterop::import(GLuint gl_texture, void* shared_handle, int
     WinInterop* w = static_cast<WinInterop*>(mImpl);
     TexState& ts = w->textures[gl_texture];
 
-    // Open (and cache) the CEF shared texture for this pooled handle. CEF reuses a
-    // small set of handles, so this is a one-time open per handle.
-    ID3D11Texture2D* cef_tex = nullptr;
-    auto it = ts.opened.find(shared_handle);
-    if (it != ts.opened.end())
+    // Open the CEF shared texture FRESH each frame. CEF hands out a pool of
+    // textures and recycles them when this callback returns, and a handle value
+    // can be remapped to a different resource - so a cached open could read a
+    // stale frame (the page-change flicker). The handle is valid only now.
+    ID3D11Texture2D* cef_tex = w->openShared(shared_handle);
+    if (!cef_tex)
     {
-        cef_tex = it->second;
-    }
-    else
-    {
-        cef_tex = w->openShared(shared_handle);
-        if (!cef_tex)
-        {
-            return false;
-        }
-        ts.opened[shared_handle] = cef_tex;
+        return false;
     }
 
     // (Re)create our interop texture if the CEF texture's size/format changed.
@@ -337,15 +354,18 @@ bool AcceleratedPaintInterop::import(GLuint gl_texture, void* shared_handle, int
     {
         if (!w->makeInterop(ts, gl_texture, cd))
         {
+            cef_tex->Release();
             return false;
         }
     }
 
     // GPU-copy this frame's CEF content into our (GL-registered) interop texture.
     // The interop object is only locked during draw, so DX owns it here - the
-    // copy is valid. Flush so the copy is submitted before the draw locks it.
+    // copy is valid. Wait for the copy to actually execute before releasing /
+    // returning, so we read the source before CEF recycles it (no keyed mutex).
     w->context->CopyResource(ts.interop, cef_tex);
-    w->context->Flush();
+    w->waitForCopy();
+    cef_tex->Release();
     return true;
 }
 
