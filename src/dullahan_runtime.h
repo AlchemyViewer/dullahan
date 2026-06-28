@@ -38,13 +38,17 @@
 #define _DULLAHAN_RUNTIME
 
 #include <string>
+#include <mutex>
+#include <chrono>
 
 #include "cef_app.h"
+#include "cef_browser_process_handler.h"
 
 #include "dullahan.h"
 
 class dullahan_runtime :
-    public CefApp
+    public CefApp,
+    public CefBrowserProcessHandler
 {
     public:
         // The process-wide singleton. Safe to call before CEF is initialized.
@@ -88,6 +92,15 @@ class dullahan_runtime :
         // CefApp overrides
         void OnBeforeCommandLineProcessing(const CefString& process_type,
                                            CefRefPtr<CefCommandLine> command_line) override;
+        CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override { return this; }
+
+        // CefBrowserProcessHandler overrides
+        // With external_message_pump, CEF calls this (from any thread) to ask for
+        // a CefDoMessageLoopWork() at most |delay_ms| from now. We record the
+        // deadline and let update() honour it, so the host pump only runs CEF work
+        // when CEF actually has some - instead of every idle tick (the fixed-
+        // cadence pump was the cause of the constant idle CPU use).
+        void OnScheduleMessagePumpWork(int64_t delay_ms) override;
 
     private:
         dullahan_runtime();
@@ -100,6 +113,15 @@ class dullahan_runtime :
         int  mLiveBrowsers;
         void* mSandboxInfo;
         bool mHostHandlesSubprocesses;
+
+        // external-message-pump scheduling (see OnScheduleMessagePumpWork). Guards
+        // a single pending deadline shared by every tab's update() call. mutable so
+        // update() can consume it. Touched from the CEF UI thread (schedule) and
+        // the host pump thread (consume), so guarded by mPumpMutex.
+        std::mutex mPumpMutex;
+        bool mPumpPending;                                  // pump as soon as possible
+        bool mHasPumpDeadline;                              // a delayed pump is scheduled
+        std::chrono::steady_clock::time_point mPumpDeadline;
 
         // process-global command-line flags, captured on the first acquire()
         bool mMediaStreamEnabled;

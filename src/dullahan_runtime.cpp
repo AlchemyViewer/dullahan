@@ -106,6 +106,8 @@ dullahan_runtime::dullahan_runtime() :
     mLiveBrowsers(0),
     mSandboxInfo(nullptr),
     mHostHandlesSubprocesses(false),
+    mPumpPending(true),                 // pump once on startup to get CEF going
+    mHasPumpDeadline(false),
     mMediaStreamEnabled(false),
     mBeginFrameScheduling(false),
     mForceWaveAudio(false),
@@ -153,8 +155,36 @@ void dullahan_runtime::release()
 
 void dullahan_runtime::update()
 {
-    if (mInitialized)
+    if (!mInitialized)
     {
+        return;
+    }
+
+    // Only pump CEF when it has asked us to (via OnScheduleMessagePumpWork) or
+    // the requested delay has elapsed. When the browser is idle CEF schedules
+    // far-future work, so most host idle ticks become no-ops here - that is the
+    // whole point: no more pumping the message loop 100x/sec for nothing. In the
+    // daemon this deadline is process-global, so N tabs calling update() in one
+    // frame still pump the shared loop at most once.
+    bool do_pump = false;
+    {
+        std::lock_guard<std::mutex> lock(mPumpMutex);
+        if (mPumpPending)
+        {
+            do_pump = true;
+            mPumpPending = false;
+        }
+        else if (mHasPumpDeadline && std::chrono::steady_clock::now() >= mPumpDeadline)
+        {
+            do_pump = true;
+            mHasPumpDeadline = false;
+        }
+    }
+
+    if (do_pump)
+    {
+        // CefDoMessageLoopWork() will normally re-arm us via a fresh
+        // OnScheduleMessagePumpWork() call before it returns.
         CefDoMessageLoopWork();
     }
 }
@@ -162,6 +192,27 @@ void dullahan_runtime::update()
 void dullahan_runtime::run()
 {
     CefRunMessageLoop();
+}
+
+void dullahan_runtime::OnScheduleMessagePumpWork(int64_t delay_ms)
+{
+    // Called from any thread. Record what CEF asked for; update() acts on it on
+    // the main/host thread (the only thread allowed to call CefDoMessageLoopWork).
+    std::lock_guard<std::mutex> lock(mPumpMutex);
+    if (delay_ms <= 0)
+    {
+        // "reasonably soon" - pump on the next update() tick.
+        mPumpPending = true;
+        mHasPumpDeadline = false;
+    }
+    else
+    {
+        // Schedule after the delay, cancelling any previously pending delayed
+        // call (per the CefBrowserProcessHandler contract). A pending immediate
+        // pump still wins - don't downgrade it to a delayed one.
+        mHasPumpDeadline = true;
+        mPumpDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(delay_ms);
+    }
 }
 
 void dullahan_runtime::OnBeforeCommandLineProcessing(const CefString& process_type,
