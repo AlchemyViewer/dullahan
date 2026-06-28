@@ -36,6 +36,7 @@
 #include <random>
 #include <sstream>
 #include <cmath>
+#include <cstdlib>
 
 #include "opengl-example.h"
 
@@ -524,6 +525,19 @@ bool openglExample::init()
     const std::string tab_urls[] = { mHomeUrl, "https://secondlife.com" };
     const int num_tabs = (int)(sizeof(tab_urls) / sizeof(tab_urls[0]));
 
+    // Decide the paint path. Prefer zero-copy (OnAcceleratedPaint -> GPU shared
+    // texture) when the interop is available; fall back to the CPU onPageChanged
+    // path otherwise. DULLAHAN_FORCE_CPU_PAINT forces the CPU path for an A/B.
+    if (std::getenv("DULLAHAN_FORCE_CPU_PAINT"))
+    {
+        std::cout << "[accelpaint] DULLAHAN_FORCE_CPU_PAINT set; using CPU paint\n";
+        mAcceleratedPaint = false;
+    }
+    else
+    {
+        mAcceleratedPaint = mAccelPaint.init();
+    }
+
     // Modern way of generating random numbers - need this for making the CEF root_cache_folder unique
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -553,6 +567,7 @@ bool openglExample::init()
         settings.initial_width = mTextureWidth;
         settings.initial_height = mTextureHeight;
         settings.disable_gpu = false;
+        settings.accelerated_paint = mAcceleratedPaint;
 #ifdef __APPLE__
         settings.use_mock_keychain = true;
 #endif
@@ -561,11 +576,22 @@ bool openglExample::init()
         if (tab.browser->init(settings))
         {
             const int tab_index = i;
+            // CPU path: pixels arrive in onPageChanged. Harmless to keep wired in
+            // accelerated mode (CEF won't call it for PET_VIEW then).
             tab.browser->setOnPageChangedCallback(
                 [this, tab_index](const unsigned char* pixels, int x, int y, int width, int height)
                 {
                     onPageChanged(tab_index, pixels, x, y, width, height);
                 });
+            // Zero-copy path: a GPU shared-texture handle arrives here instead.
+            if (mAcceleratedPaint)
+            {
+                tab.browser->setOnAcceleratedPaintCallback(
+                    [this, tab_index](void* native_handle, int format, int width, int height)
+                    {
+                        onAcceleratedPaint(tab_index, native_handle, format, width, height);
+                    });
+            }
             tab.browser->setOnRequestExitCallback(std::bind(&openglExample::onRequestExitCallback, this));
 
             tab.browser->navigate(tab.url);
@@ -704,6 +730,13 @@ void openglExample::draw()
 
     // draw the browser output texture on a quad spanning [-1, 1] in x and y.
     // pick() relies on this same geometry / texcoord mapping.
+    // In accelerated mode the texture aliases a GPU shared texture, so it must be
+    // locked for the duration of the GL read (the interop's GL<->DX sync point).
+    if (mAcceleratedPaint)
+    {
+        mAccelPaint.lockForDraw((GLuint)mTextureId);
+    }
+
     glBindTexture(GL_TEXTURE_2D, (GLuint)mTextureId);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -718,6 +751,11 @@ void openglExample::draw()
     glTexCoord2f(0.0, 0.0);
     glVertex3f(-1.0f,  1.0f, 0.0f);
     glEnd();
+
+    if (mAcceleratedPaint)
+    {
+        mAccelPaint.unlockAfterDraw((GLuint)mTextureId);
+    }
 }
 
 // Triggered when a tab's browser page content changes. The tab index is bound
@@ -741,6 +779,33 @@ void openglExample::onPageChanged(int tab_index, const unsigned char* pixels, in
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)width, (GLsizei)height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 
     // keep the active-tab display mirror in sync so pick() stays accurate
+    if (tab_index == mActiveTab)
+    {
+        mTextureWidth = width;
+        mTextureHeight = height;
+    }
+}
+
+// Zero-copy paint: CEF handed us a GPU shared-texture handle for this tab's
+// frame. Alias it into the tab's GL texture via the interop (no CPU copy / no
+// glTexImage2D). The handle is only valid for the duration of this callback.
+void openglExample::onAcceleratedPaint(int tab_index, void* native_handle, int /*format*/, const int width, const int height)
+{
+    if (tab_index < 0 || tab_index >= (int)mTabs.size())
+    {
+        return;
+    }
+
+    Tab& tab = mTabs[tab_index];
+
+    if (! mAccelPaint.import(tab.texture, native_handle, width, height))
+    {
+        return;
+    }
+
+    tab.tex_width = width;
+    tab.tex_height = height;
+
     if (tab_index == mActiveTab)
     {
         mTextureWidth = width;
@@ -1246,6 +1311,10 @@ bool openglExample::run()
 bool openglExample::reset()
 {
     resetUI();
+
+    // Tear down the interop (unregister objects, close the DX device) while the
+    // GL context is still current.
+    mAccelPaint.shutdown();
 
     SDL_GL_DestroyContext(mGLContext);
 

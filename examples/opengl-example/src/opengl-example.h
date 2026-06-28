@@ -48,6 +48,8 @@
 
 #include <SDL3/SDL.h>
 
+#include "opengl-example-accelpaint.h"
+
 class dullahan;
 
 class openglExample
@@ -73,6 +75,9 @@ class openglExample
 
         // callbacks
         void onPageChanged(int tab_index, const unsigned char* pixels, int x, int y, const int width, const int height);
+        // zero-copy paint: CEF handed us a GPU shared-texture handle instead of a
+        // CPU pixel buffer (only when accelerated paint is enabled + supported).
+        void onAcceleratedPaint(int tab_index, void* native_handle, int format, int width, int height);
         void onRequestExitCallback();
 
     private:
@@ -108,6 +113,14 @@ class openglExample
         int mTextureWidth = 1024;
         int mTextureHeight = 1024;
         dullahan* mDullahan;
+
+        // Zero-copy paint: when enabled + supported, CEF hands us a GPU shared
+        // texture (OnAcceleratedPaint) which mAccelPaint aliases into the tab's GL
+        // texture - no glTexImage2D upload. Set at startup from interop init (and
+        // can be forced off with DULLAHAN_FORCE_CPU_PAINT for an A/B comparison);
+        // the CPU onPageChanged path remains as the fallback.
+        bool mAcceleratedPaint = false;
+        AcceleratedPaintInterop mAccelPaint;
 
         // One browser tab. Each tab is its own dullahan browser, but they all
         // share a single process-global CEF runtime (dullahan_runtime) - this

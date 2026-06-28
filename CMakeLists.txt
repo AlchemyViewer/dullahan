@@ -204,6 +204,8 @@ if (BUILD_DULLAHAN_EXAMPLE)
             MODULE
             examples/opengl-example/src/opengl-example.cpp
             examples/opengl-example/src/opengl-example.h
+            examples/opengl-example/src/opengl-example-accelpaint.cpp
+            examples/opengl-example/src/opengl-example-accelpaint.h
             ${OPENGL_EXAMPLE_PLATFORM_SRC}
             examples/opengl-example/README.md
         )
@@ -213,6 +215,8 @@ if (BUILD_DULLAHAN_EXAMPLE)
             MACOSX_BUNDLE
             examples/opengl-example/src/opengl-example.cpp
             examples/opengl-example/src/opengl-example.h
+            examples/opengl-example/src/opengl-example-accelpaint.cpp
+            examples/opengl-example/src/opengl-example-accelpaint.h
             ${OPENGL_EXAMPLE_PLATFORM_SRC}
             examples/opengl-example/README.md
             src/compatibility.manifest
@@ -235,6 +239,8 @@ if (BUILD_DULLAHAN_EXAMPLE)
             ll::SDL3
             imgui::imgui
             glad::glad
+            d3d11      # zero-copy paint: D3D11 + WGL_NV_DX_interop2
+            dxgi
         )
         SET_PROPERTY(DIRECTORY PROPERTY VS_STARTUP_PROJECT "opengl-example")
     elseif(DARWIN)
