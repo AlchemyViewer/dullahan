@@ -61,9 +61,27 @@ class dullahan_runtime :
         // true if the CEF runtime is up.
         bool acquire(dullahan::dullahan_settings& user_settings);
 
-        // Unregister one live browser. Shuts CEF down once the last live
-        // browser has been released.
+        // Unregister one live browser. In the default (per-process) mode this
+        // shuts CEF down once the last live browser is released - correct when the
+        // process is about to exit anyway. In a persistent host (see
+        // setPersistent) it only decrements the count and leaves CEF running, so a
+        // brief zero-browser gap (e.g. the login web surface closing just before
+        // the next one opens) does NOT tear CEF down - re-CefInitialize would
+        // crash, since CEF cannot be initialized twice in a process.
         void release();
+
+        // A persistent host (the SLPluginCEF bootstrap - dedicated single tab or
+        // the shared daemon) keeps one CEF runtime for the life of the process and
+        // shuts it down exactly once, via shutdownIfRunning() at host-loop exit,
+        // rather than letting the browser refcount drive CefShutdown. Must be set
+        // before the first acquire(). Without this, a zero-browser moment shuts
+        // CEF down and the next acquire() crashes trying to re-initialize it.
+        void setPersistent(bool b) { mPersistent = b; }
+
+        // Final teardown for a persistent host: shut CEF down once if it is still
+        // up. Call after the host message loop returns and before process exit.
+        // A no-op in per-process mode (release() already shut CEF down).
+        void shutdownIfRunning();
 
         bool isInitialized() const { return mInitialized; }
 
@@ -113,6 +131,11 @@ class dullahan_runtime :
         int  mLiveBrowsers;
         void* mSandboxInfo;
         bool mHostHandlesSubprocesses;
+        // Persistent host: keep CEF up across zero-browser gaps (see setPersistent).
+        bool mPersistent;
+        // Latched once CefShutdown() has run. CEF cannot be re-initialized in a
+        // process, so acquire() refuses to try (returns false) rather than crash.
+        bool mTerminated;
 
         // external-message-pump scheduling (see OnScheduleMessagePumpWork). Guards
         // a single pending deadline shared by every tab's update() call. mutable so

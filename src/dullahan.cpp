@@ -58,6 +58,18 @@ void dullahan::setHostHandlesSubprocesses(bool host_handles)
     dullahan_runtime::instance().setHostHandlesSubprocesses(host_handles);
 }
 
+// static
+void dullahan::setPersistentRuntime(bool persistent)
+{
+    dullahan_runtime::instance().setPersistent(persistent);
+}
+
+// static
+void dullahan::shutdownRuntime()
+{
+    dullahan_runtime::instance().shutdownIfRunning();
+}
+
 void dullahan::shutdown()
 {
     mImpl->shutdown();

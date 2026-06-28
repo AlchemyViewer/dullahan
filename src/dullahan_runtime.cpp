@@ -117,6 +117,8 @@ dullahan_runtime::dullahan_runtime() :
     mLiveBrowsers(0),
     mSandboxInfo(nullptr),
     mHostHandlesSubprocesses(false),
+    mPersistent(false),
+    mTerminated(false),
     mPumpPending(true),                 // pump once on startup to get CEF going
     mHasPumpDeadline(false),
     mMediaStreamEnabled(false),
@@ -136,6 +138,15 @@ bool dullahan_runtime::acquire(dullahan::dullahan_settings& user_settings)
 {
     if (!mInitialized)
     {
+        if (mTerminated)
+        {
+            // CEF was already shut down in this process and cannot be brought
+            // back (CefInitialize is once-per-process). Refuse rather than crash;
+            // a persistent host keeps CEF up so it should never reach here.
+            DLNOUT("dullahan_runtime::acquire() refused - CEF already shut down");
+            return false;
+        }
+
         platormInitWidevine(user_settings.root_cache_path);
 
         if (!initCEF(user_settings))
@@ -174,10 +185,27 @@ void dullahan_runtime::release()
         --mLiveBrowsers;
     }
 
-    if (mLiveBrowsers == 0 && mInitialized)
+    // A persistent host (the SLPluginCEF bootstrap / shared daemon) keeps CEF up
+    // across zero-browser gaps and shuts it down once at process exit via
+    // shutdownIfRunning(). Tearing CEF down here would crash the next acquire(),
+    // since CEF cannot be re-initialized in a process - that is the login-time
+    // crash when the login web surface closes just before the next one opens.
+    if (mLiveBrowsers == 0 && mInitialized && !mPersistent)
     {
         CefShutdown();
         mInitialized = false;
+        mTerminated = true;
+    }
+}
+
+void dullahan_runtime::shutdownIfRunning()
+{
+    if (mInitialized)
+    {
+        CefShutdown();
+        mInitialized = false;
+        mTerminated = true;
+        mLiveBrowsers = 0;
     }
 }
 

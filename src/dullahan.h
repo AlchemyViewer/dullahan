@@ -239,6 +239,19 @@ class dullahan
         // Independent of the sandbox. Set before the first init().
         static void setHostHandlesSubprocesses(bool host_handles);
 
+        // Mark this a persistent host (the SLPluginCEF bootstrap / shared daemon):
+        // the process-global CEF runtime stays up across zero-browser gaps and is
+        // shut down once via shutdownRuntime() at process exit, instead of the
+        // browser refcount driving CefShutdown. Prevents the re-CefInitialize
+        // crash when one browser closes just before the next opens. Set before the
+        // first init().
+        static void setPersistentRuntime(bool persistent);
+
+        // Final teardown for a persistent host: shut the process-global CEF
+        // runtime down once if still up. Call after the host loop returns, before
+        // process exit. No-op for a non-persistent (per-process) host.
+        static void shutdownRuntime();
+
         // close down CEF - call just before you exit
         void shutdown();
 
