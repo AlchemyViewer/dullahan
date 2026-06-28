@@ -72,6 +72,15 @@ class dullahan_runtime :
         void setSandboxInfo(void* sandbox_info) { mSandboxInfo = sandbox_info; }
         void* getSandboxInfo() const { return mSandboxInfo; }
 
+        // When true, this host dispatches CEF sub-processes itself by having CEF
+        // re-launch this same executable image (its entry runs CefExecuteProcess
+        // - e.g. the SLPluginCEF bootstrap), so browser_subprocess_path is left
+        // unset (CEF defaults to the current image). When false (the legacy
+        // dlopen host) a separate dullahan_host.exe is used. INDEPENDENT of the
+        // sandbox - a dedicated host should never fall back to dullahan_host just
+        // because the sandbox is off. Set before the first acquire().
+        void setHostHandlesSubprocesses(bool b) { mHostHandlesSubprocesses = b; }
+
         // shared message pump - see dullahan_impl::update() / run()
         void update();
         void run();
@@ -90,6 +99,7 @@ class dullahan_runtime :
         bool mInitialized;
         int  mLiveBrowsers;
         void* mSandboxInfo;
+        bool mHostHandlesSubprocesses;
 
         // process-global command-line flags, captured on the first acquire()
         bool mMediaStreamEnabled;

@@ -52,6 +52,12 @@ void dullahan::setSandboxInfo(void* sandbox_info)
     dullahan_runtime::instance().setSandboxInfo(sandbox_info);
 }
 
+// static
+void dullahan::setHostHandlesSubprocesses(bool host_handles)
+{
+    dullahan_runtime::instance().setHostHandlesSubprocesses(host_handles);
+}
+
 void dullahan::shutdown()
 {
     mImpl->shutdown();

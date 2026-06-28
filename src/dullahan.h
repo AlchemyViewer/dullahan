@@ -233,6 +233,12 @@ class dullahan
         // NULL (the default) means no sandbox. Has no effect once CEF is up.
         static void setSandboxInfo(void* sandbox_info);
 
+        // Call from a CEF bootstrap host (one whose entry runs CefExecuteProcess
+        // - e.g. SLPluginCEF) so CEF re-launches this executable image for its
+        // sub-processes instead of using the separate dullahan_host helper.
+        // Independent of the sandbox. Set before the first init().
+        static void setHostHandlesSubprocesses(bool host_handles);
+
         // close down CEF - call just before you exit
         void shutdown();
 

@@ -1297,6 +1297,9 @@ extern "C" CEF_BOOTSTRAP_EXPORT int RunWinMain(HINSTANCE hInstance,
     }
 
     dullahan::setSandboxInfo(sandbox_info);
+    // This bootstrap exe dispatches CEF sub-processes itself (CEF re-launches it
+    // -> RunWinMain -> CefExecuteProcess), so don't use the dullahan_host helper.
+    dullahan::setHostHandlesSubprocesses(true);
     return runExample();
 }
 #else

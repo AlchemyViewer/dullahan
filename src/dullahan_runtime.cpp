@@ -105,6 +105,7 @@ dullahan_runtime::dullahan_runtime() :
     mInitialized(false),
     mLiveBrowsers(0),
     mSandboxInfo(nullptr),
+    mHostHandlesSubprocesses(false),
     mMediaStreamEnabled(false),
     mBeginFrameScheduling(false),
     mForceWaveAudio(false),
@@ -243,19 +244,24 @@ bool dullahan_runtime::initCEF(dullahan::dullahan_settings& user_settings)
 
     // point to host application helper
 #ifdef WIN32
-    if (mSandboxInfo)
+    // The sandbox is enabled only when a sandbox-info object was supplied (by
+    // the CEF bootstrap host). This is independent of who runs the sub-processes.
+    settings.no_sandbox = (mSandboxInfo == nullptr);
+
+    if (mSandboxInfo || mHostHandlesSubprocesses)
     {
-        // CEF bootstrap / sandbox host (SLPluginCEF): sub-processes are
-        // re-launches of this same executable image (the renamed bootstrap.exe
-        // loading our RunWinMain DLL), which the Windows sandbox requires. Do
-        // NOT set browser_subprocess_path - let CEF relaunch the current image -
-        // and run with the sandbox enabled.
-        settings.no_sandbox = false;
+        // SLPluginCEF (a CEF bootstrap host): CEF re-launches this same
+        // executable image for its sub-processes - the renamed bootstrap.exe
+        // loads our RunWinMain DLL, which runs CefExecuteProcess. So leave
+        // browser_subprocess_path unset (CEF defaults to the current image).
+        // Required by the sandbox, and used whether or not the sandbox is active
+        // so the dedicated host never falls back to the dullahan_host helper.
     }
     else
     {
-        // Legacy dlopen host: a separate dullahan_host.exe helper runs the CEF
-        // sub-processes and the sandbox is off.
+        // Legacy dlopen host (generic SLPlugin + media_plugin_cef.dll): the
+        // dlopened plugin has no CefExecuteProcess entry, so a separate
+        // dullahan_host.exe runs the CEF sub-processes.
         //
         // Note: as of CEF 83, it appears that on Windows builds, the path to the
         // host helper application must be an absolute path vs the existing,
@@ -280,8 +286,6 @@ bool dullahan_runtime::initCEF(dullahan::dullahan_settings& user_settings)
 
         // finally, tell CEF where to find the host process helper
         CefString(&settings.browser_subprocess_path) = host_process_path + "\\" + user_settings.host_process_filename;
-
-        settings.no_sandbox = true;
     }
 #elif __APPLE__
     NSString* appBundlePath = [[NSBundle mainBundle] bundlePath];
