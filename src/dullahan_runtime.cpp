@@ -34,6 +34,8 @@
 #include "dullahan_runtime.h"
 #include "dullahan_debug.h"
 
+#include <thread>
+
 #ifdef __APPLE__
 #include "include/wrapper/cef_library_loader.h"
 #endif
@@ -142,6 +144,23 @@ bool dullahan_runtime::acquire(dullahan::dullahan_settings& user_settings)
         }
 
         mInitialized = true;
+
+        // One-time settle. After CefInitialize the process-global request context
+        // (CefRequestContext::GetGlobalContext(), shared by every browser in this
+        // process) finishes initializing asynchronously; creating a browser
+        // against it too soon intermittently fails. Pump the loop briefly to let
+        // it complete. This runs ONCE per process - only the first browser pays
+        // it, and at that point there are no other browsers to stall. Later daemon
+        // tabs join the already-initialized runtime and skip straight to creating
+        // their browser. (Previously every dullahan_impl::init() paid this ~50ms,
+        // which in the daemon froze every other tab on each new tab.)
+        const int settle_loops = 10;
+        const int settle_sleep_ms = 5;
+        for (int i = 0; i < settle_loops; ++i)
+        {
+            CefDoMessageLoopWork();
+            std::this_thread::sleep_for(std::chrono::milliseconds(settle_sleep_ms));
+        }
     }
 
     ++mLiveBrowsers;

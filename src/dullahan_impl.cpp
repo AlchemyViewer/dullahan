@@ -128,23 +128,11 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     const int height = user_settings.initial_height;
     window_info.bounds = { 0, 0, width, height };
 
+    // Every browser in this process shares the global request context. The
+    // one-time settle that lets it finish initializing now happens once in
+    // dullahan_runtime::acquire() (above), so a daemon tab created later does not
+    // re-pay it - it is ready by the time we get here.
     mRequestContext = CefRequestContext::GetGlobalContext();
-
-    // Generate a short pause between creating the request context and creating
-    // the browser. This is not a good solution but for the moment, seems to
-    // work - I can repro the error 1 in 5 times.  I've tried this hundreds of
-    // times and haven't seen it. Probably hardware specific. Probably appear
-    // for me as soon as this ships! The correct solution is likely to be
-    // hooking up the callback in the second parameter of CreateContext and
-    // overriding the OnRequestContextINitialized() virtual override. Then,
-    // once that fires, continue with the rest of initialization.
-    const int num_extra_cef_work_loops = 10;
-    const int sleep_time_between_calls = 5;
-    for (int i = 0; i < num_extra_cef_work_loops; ++i)
-    {
-        CefDoMessageLoopWork();
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time_between_calls));
-    }
 
     // browser for this instance - empty URL and no extra_info
     mBrowser = CefBrowserHost::CreateBrowserSync(window_info, mBrowserClient.get(), std::string(), browser_settings, nullptr, mRequestContext.get());
