@@ -52,6 +52,15 @@
 #include <iostream>
 #endif
 
+// Watchdog ceiling for the external message pump: never let CefDoMessageLoopWork()
+// go un-called for longer than this, even if OnScheduleMessagePumpWork hasn't asked
+// for it. CEF's external-pump scheduling only re-notifies when the next-needed-pump
+// time changes, so a coalesced schedule (notably during a resize, where a needed
+// repaint can be left unscheduled) could otherwise leave the surface blank with
+// nothing to re-trigger a pump. ~10 no-op pumps/sec when idle is far below the old
+// every-tick (~100/sec/tab) pumping, so the CPU win is preserved.
+static constexpr std::chrono::milliseconds DULLAHAN_MAX_PUMP_INTERVAL{ 100 };
+
 namespace
 {
 #ifdef WIN32
@@ -166,6 +175,7 @@ void dullahan_runtime::update()
     // whole point: no more pumping the message loop 100x/sec for nothing. In the
     // daemon this deadline is process-global, so N tabs calling update() in one
     // frame still pump the shared loop at most once.
+    const auto now = std::chrono::steady_clock::now();
     bool do_pump = false;
     {
         std::lock_guard<std::mutex> lock(mPumpMutex);
@@ -174,10 +184,22 @@ void dullahan_runtime::update()
             do_pump = true;
             mPumpPending = false;
         }
-        else if (mHasPumpDeadline && std::chrono::steady_clock::now() >= mPumpDeadline)
+        else if (mHasPumpDeadline && now >= mPumpDeadline)
         {
             do_pump = true;
             mHasPumpDeadline = false;
+        }
+        else if (now - mLastPumpTime >= DULLAHAN_MAX_PUMP_INTERVAL)
+        {
+            // Watchdog: a needed pump may have been coalesced away (see
+            // DULLAHAN_MAX_PUMP_INTERVAL) - keep the loop alive so e.g. a resized
+            // surface can't blank out permanently.
+            do_pump = true;
+        }
+
+        if (do_pump)
+        {
+            mLastPumpTime = now;
         }
     }
 

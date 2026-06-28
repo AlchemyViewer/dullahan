@@ -122,6 +122,7 @@ class dullahan_runtime :
         bool mPumpPending;                                  // pump as soon as possible
         bool mHasPumpDeadline;                              // a delayed pump is scheduled
         std::chrono::steady_clock::time_point mPumpDeadline;
+        std::chrono::steady_clock::time_point mLastPumpTime; // watchdog: last actual pump
 
         // process-global command-line flags, captured on the first acquire()
         bool mMediaStreamEnabled;
