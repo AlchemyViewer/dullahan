@@ -168,6 +168,7 @@ class dullahan
 
             // enable/disable features - most obvious but listed for completeness
             bool begin_frame_scheduling = false;        // fixes issue when onPaint not called
+            bool accelerated_paint = false;             // zero-copy GPU shared-texture paint (OnAcceleratedPaint); forces GPU compositing on
             bool cookies_enabled = true;                // cookies
             bool disable_gpu = false;                   // disable GPU and GPU compositing
             bool file_access_from_file_urls = false;    // allow access files from local file system
@@ -423,6 +424,18 @@ class dullahan
         void setOnPageChangedCallback(std::function<void(const unsigned char* pixels,
                                       int x, int y,
                                       int width, int height)> callback);
+
+        // a GPU shared texture is ready (zero-copy paint). Only fires when
+        // dullahan_settings::accelerated_paint is enabled - in that mode the CPU
+        // onPageChanged path does not run for the page (PET_VIEW). native_handle
+        // is a platform shared-texture handle (Windows: a D3D11 shared-texture
+        // HANDLE; macOS: an IOSurfaceRef; Linux: a native pixmap / dma-buf) and is
+        // only guaranteed valid for the duration of the callback - the consumer
+        // must take ownership (duplicate to another process and/or import into its
+        // own graphics API) before returning. format is a cef_color_type_t;
+        // width/height are the texture's coded size in pixels.
+        void setOnAcceleratedPaintCallback(std::function<void(void* native_handle,
+                                            int format, int width, int height)> callback);
 
         // exit app requested
         void setOnRequestExitCallback(std::function<void()> callback);

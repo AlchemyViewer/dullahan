@@ -165,6 +165,20 @@ void dullahan_callback_manager::onPageChanged(const unsigned char* pixels, int x
     }
 }
 
+void dullahan_callback_manager::setOnAcceleratedPaintCallback(
+    std::function<void(void* native_handle, int format, int width, int height)> callback)
+{
+    mOnAcceleratedPaintCallbackFunc = callback;
+}
+
+void dullahan_callback_manager::onAcceleratedPaint(void* native_handle, int format, int width, int height)
+{
+    if (mOnAcceleratedPaintCallbackFunc)
+    {
+        mOnAcceleratedPaintCallbackFunc(native_handle, format, width, height);
+    }
+}
+
 void dullahan_callback_manager::setOnStatusMessageCallback(std::function<void(const std::string message)> callback)
 {
     mOnStatusMessageCallbackFunc = callback;

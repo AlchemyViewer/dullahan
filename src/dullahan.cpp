@@ -429,6 +429,12 @@ void dullahan::setOnPageChangedCallback(std::function<void(const unsigned char* 
     mImpl->getCallbackManager()->setOnPageChangedCallback(callback);
 }
 
+void dullahan::setOnAcceleratedPaintCallback(std::function<void(void* native_handle,
+                                             int format, int width, int height)> callback)
+{
+    mImpl->getCallbackManager()->setOnAcceleratedPaintCallback(callback);
+}
+
 void dullahan::setOnRequestExitCallback(std::function<void()> callback)
 {
     mImpl->getCallbackManager()->setOnRequestExitCallback(callback);

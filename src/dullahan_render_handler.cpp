@@ -162,6 +162,37 @@ void dullahan_render_handler::OnPaint(CefRefPtr<CefBrowser> browser,
 }
 
 // CefRenderHandler override
+// Zero-copy path: CEF hands us a GPU shared-texture handle instead of a CPU
+// pixel buffer. Only fires when the browser was created with
+// shared_texture_enabled (dullahan_settings::accelerated_paint). We forward the
+// native handle + format + coded size to the consumer, which owns importing it
+// (and, across a process boundary, duplicating it) before this returns - CEF
+// recycles the texture once the callback returns. Popups still come through the
+// CPU OnPaint/PET_POPUP path, so accelerated paint covers PET_VIEW only.
+void dullahan_render_handler::OnAcceleratedPaint(CefRefPtr<CefBrowser> browser,
+        PaintElementType type, const RectList& dirtyRects,
+        const CefAcceleratedPaintInfo& info)
+{
+    CEF_REQUIRE_UI_THREAD();
+
+    if (type != PET_VIEW)
+    {
+        return;
+    }
+
+    const int width = info.extra.coded_size.width;
+    const int height = info.extra.coded_size.height;
+    if (width <= 0 || height <= 0)
+    {
+        return;
+    }
+
+    mParent->getCallbackManager()->onAcceleratedPaint(
+        reinterpret_cast<void*>(info.shared_texture_handle),
+        static_cast<int>(info.format), width, height);
+}
+
+// CefRenderHandler override
 void dullahan_render_handler::OnPopupShow(CefRefPtr<CefBrowser> browser, bool show)
 {
     CEF_REQUIRE_UI_THREAD();

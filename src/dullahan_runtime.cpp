@@ -499,7 +499,9 @@ bool dullahan_runtime::initCEF(dullahan::dullahan_settings& user_settings)
 #endif
 
     // this flag if set, adds command line options to disable the GPU and GPU compositing.
-    mDisableGPU = user_settings.disable_gpu;
+    // Accelerated paint hands us a GPU shared texture, which requires GPU
+    // compositing - so it always wins over a disable_gpu request.
+    mDisableGPU = user_settings.disable_gpu && !user_settings.accelerated_paint;
 
     // this flag if set, adds command line parameters to disable the web security component
     mDisableWebSecurity = user_settings.disable_web_security;

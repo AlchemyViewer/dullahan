@@ -64,6 +64,9 @@ class dullahan_callback_manager
         void setOnPageChangedCallback(std::function<void(const unsigned char* pixels, int x, int y, int width, int height)> callback);
         void onPageChanged(const unsigned char* pixels, int x, int y, int width, int height);
 
+        void setOnAcceleratedPaintCallback(std::function<void(void* native_handle, int format, int width, int height)> callback);
+        void onAcceleratedPaint(void* native_handle, int format, int width, int height);
+
         void setOnStatusMessageCallback(std::function<void(const std::string message)> callback);
         void onStatusMessage(const std::string message);
 
@@ -108,6 +111,7 @@ class dullahan_callback_manager
         std::function<void()> mOnLoadStartCallbackFunc;
         std::function<void(const std::string, const std::string)> mOnOpenPopupCallbackFunc;
         std::function<void(const unsigned char*, int, int, int, int)> mOnPageChangedCallbackFunc;
+        std::function<void(void*, int, int, int)> mOnAcceleratedPaintCallbackFunc;
         std::function<void(const std::string)> mOnStatusMessageCallbackFunc;
         std::function<void()> mOnRequestExitCallbackFunc;
         std::function<void(const std::string)> mOnTitleChangeCallbackFunc;

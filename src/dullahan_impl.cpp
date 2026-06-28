@@ -124,6 +124,10 @@ bool dullahan_impl::init(dullahan::dullahan_settings& user_settings)
     CefWindowInfo window_info;
     window_info.SetAsWindowless(0);
     window_info.windowless_rendering_enabled = true;
+    // Zero-copy paint: ask CEF to hand us a GPU shared texture (OnAcceleratedPaint)
+    // instead of a CPU pixel buffer. Requires GPU compositing, which the runtime
+    // forces on for this mode (see dullahan_runtime::initCEF).
+    window_info.shared_texture_enabled = user_settings.accelerated_paint ? TRUE : FALSE;
     const int width = user_settings.initial_width;
     const int height = user_settings.initial_height;
     window_info.bounds = { 0, 0, width, height };
