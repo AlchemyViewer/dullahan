@@ -435,6 +435,13 @@ void dullahan::setOnAcceleratedPaintCallback(std::function<void(void* native_han
     mImpl->getCallbackManager()->setOnAcceleratedPaintCallback(callback);
 }
 
+void dullahan::setOnAcceleratedPaintDmabufCallback(std::function<void(int fd, int format,
+                                                   int width, int height, unsigned int stride,
+                                                   unsigned long long offset, unsigned long long modifier)> callback)
+{
+    mImpl->getCallbackManager()->setOnAcceleratedPaintDmabufCallback(callback);
+}
+
 void dullahan::setOnRequestExitCallback(std::function<void()> callback)
 {
     mImpl->getCallbackManager()->setOnRequestExitCallback(callback);

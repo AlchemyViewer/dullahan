@@ -437,6 +437,14 @@ class dullahan
         void setOnAcceleratedPaintCallback(std::function<void(void* native_handle,
                                             int format, int width, int height)> callback);
 
+        // Linux only: the accelerated frame arrives as a dma-buf (file descriptor
+        // + plane layout) instead of a single shared handle. fd is owned by the
+        // callback only for its duration - dup it (and pass it across a process
+        // boundary via SCM_RIGHTS) before returning. Single-plane formats only.
+        void setOnAcceleratedPaintDmabufCallback(std::function<void(int fd, int format,
+                                                 int width, int height, unsigned int stride,
+                                                 unsigned long long offset, unsigned long long modifier)> callback);
+
         // exit app requested
         void setOnRequestExitCallback(std::function<void()> callback);
 

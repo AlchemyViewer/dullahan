@@ -179,6 +179,22 @@ void dullahan_callback_manager::onAcceleratedPaint(void* native_handle, int form
     }
 }
 
+void dullahan_callback_manager::setOnAcceleratedPaintDmabufCallback(
+    std::function<void(int fd, int format, int width, int height,
+                       unsigned int stride, unsigned long long offset, unsigned long long modifier)> callback)
+{
+    mOnAcceleratedPaintDmabufCallbackFunc = callback;
+}
+
+void dullahan_callback_manager::onAcceleratedPaintDmabuf(int fd, int format, int width, int height,
+                                                         unsigned int stride, unsigned long long offset, unsigned long long modifier)
+{
+    if (mOnAcceleratedPaintDmabufCallbackFunc)
+    {
+        mOnAcceleratedPaintDmabufCallbackFunc(fd, format, width, height, stride, offset, modifier);
+    }
+}
+
 void dullahan_callback_manager::setOnStatusMessageCallback(std::function<void(const std::string message)> callback)
 {
     mOnStatusMessageCallbackFunc = callback;

@@ -187,9 +187,30 @@ void dullahan_render_handler::OnAcceleratedPaint(CefRefPtr<CefBrowser> browser,
         return;
     }
 
+    const int format = static_cast<int>(info.format);
+
+#if defined(_WIN32)
+    // Windows: a shared D3D11 texture handle (NT handle).
     mParent->getCallbackManager()->onAcceleratedPaint(
-        reinterpret_cast<void*>(info.shared_texture_handle),
-        static_cast<int>(info.format), width, height);
+        reinterpret_cast<void*>(info.shared_texture_handle), format, width, height);
+#elif defined(__APPLE__)
+    // macOS: an IOSurfaceRef (shareable cross-process via its IOSurfaceID).
+    mParent->getCallbackManager()->onAcceleratedPaint(
+        reinterpret_cast<void*>(info.shared_texture_io_surface), format, width, height);
+#elif defined(__linux__)
+    // Linux: a dma-buf. CEF can export several planes; OSR BGRA/RGBA is single
+    // plane, which is all the import path below handles. The fd is valid only for
+    // this callback.
+    if (info.plane_count > 0)
+    {
+        const auto& plane = info.planes[0];
+        mParent->getCallbackManager()->onAcceleratedPaintDmabuf(
+            plane.fd, format, width, height,
+            static_cast<unsigned int>(plane.stride),
+            static_cast<unsigned long long>(plane.offset),
+            static_cast<unsigned long long>(info.modifier));
+    }
+#endif
 }
 
 // CefRenderHandler override

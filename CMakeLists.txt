@@ -127,8 +127,14 @@ elseif(DARWIN)
 
         target_link_libraries(${_helper_target} PRIVATE ll::cef)
         set_target_properties(${_helper_target} PROPERTIES
-            MACOSX_BUNDLE_INFO_PLIST ${_helper_info_plist}
-            OUTPUT_NAME ${_helper_output_name}
+            XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.achemyviewer.dullahanhost${_plist_suffix}"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "org.achemyviewer.dullahanhost${_plist_suffix}"
+            MACOSX_BUNDLE_EXECUTABLE_NAME "${_helper_output_name}"
+            MACOSX_BUNDLE_BUNDLE_NAME "${_helper_output_name}"
+            MACOSX_BUNDLE_SHORT_VERSION_STRING "${DULLAHAN_VERSION_MAJOR}.${DULLAHAN_VERSION_MINOR}.${DULLAHAN_VERSION_PATCH}"
+            MACOSX_BUNDLE_INFO_STRING "Dullahan Helper${_name_suffix}"
+            MACOSX_BUNDLE_INFO_PLIST "${_helper_info_plist}"
+            OUTPUT_NAME "${_helper_output_name}"
         )
     endforeach()
 elseif(LINUX)
