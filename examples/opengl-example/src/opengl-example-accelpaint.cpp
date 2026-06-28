@@ -59,21 +59,25 @@ namespace
     typedef BOOL  (WINAPI* PFN_wglDXLockObjectsNV)(HANDLE hDevice, GLint count, HANDLE* hObjects);
     typedef BOOL  (WINAPI* PFN_wglDXUnlockObjectsNV)(HANDLE hDevice, GLint count, HANDLE* hObjects);
 
-    // Cap on cached registrations per GL texture (CEF cycles a small pool of
-    // shared textures; keep a few registered so we don't re-register every frame
-    // but bound the leak risk if the pool churns).
-    const size_t MAX_REGS_PER_TEXTURE = 8;
-
-    struct Reg
-    {
-        ID3D11Texture2D* tex = nullptr;   // opened CEF shared texture
-        HANDLE obj = nullptr;             // wglDXRegisterObjectNV handle
-    };
-
+    // Per GL texture: an intermediate D3D texture WE own (created in our interop
+    // device), registered once with GL via WGL_NV_DX_interop2, plus a cache of
+    // the CEF shared textures opened from its pooled handles.
+    //
+    // Why the intermediate: WGL_NV_DX_interop2 cannot register a D3D texture that
+    // was opened from another device through an NT-handle share - which is exactly
+    // how modern Chromium creates the OnAcceleratedPaint texture
+    // (D3D11_RESOURCE_MISC_SHARED_NTHANDLE). OpenSharedResource1 succeeds but
+    // wglDXRegisterObjectNV then fails (ERROR_OPEN_FAILED). A texture created in
+    // our own device registers fine, so each frame we GPU-copy the CEF texture
+    // into it (CopyResource - no CPU readback, so still zero-copy CPU-side).
     struct TexState
     {
-        std::unordered_map<void*, Reg> regs;   // keyed by CEF shared handle
-        HANDLE current = nullptr;              // obj for the most recent import
+        std::unordered_map<void*, ID3D11Texture2D*> opened;   // CEF textures by handle
+        ID3D11Texture2D* interop = nullptr;                   // our texture, GL-registered
+        HANDLE obj = nullptr;                                 // wglDXRegisterObjectNV handle
+        int width = 0;
+        int height = 0;
+        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
         bool locked = false;
     };
 
@@ -127,18 +131,87 @@ namespace
             return nullptr;
         }
 
-        void releaseReg(Reg& r)
+        // Create the intermediate texture for ts (our device) matching the CEF
+        // texture desc, and register it with the GL texture. Returns false on
+        // failure. Releases/reregisters if one already exists.
+        bool makeInterop(TexState& ts, GLuint gl_texture, const D3D11_TEXTURE2D_DESC& cef_desc)
         {
-            if (r.obj)
+            if (ts.obj) { wglDXUnregisterObjectNV(wgl_device, ts.obj); ts.obj = nullptr; }
+            if (ts.interop) { ts.interop->Release(); ts.interop = nullptr; }
+
+            D3D11_TEXTURE2D_DESC d = {};
+            d.Width = cef_desc.Width;
+            d.Height = cef_desc.Height;
+            d.MipLevels = 1;
+            d.ArraySize = 1;
+            d.Format = cef_desc.Format;
+            d.SampleDesc.Count = 1;
+            d.Usage = D3D11_USAGE_DEFAULT;
+            d.CPUAccessFlags = 0;
+            d.MiscFlags = 0;
+
+            // Some NV/AMD interop drivers want the registered texture to also be a
+            // render target; fall back to shader-resource-only if that's rejected
+            // (e.g. for a format that can't be an RT).
+            HRESULT hr;
+            d.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+            hr = device->CreateTexture2D(&d, nullptr, &ts.interop);
+            if (FAILED(hr))
             {
-                wglDXUnregisterObjectNV(wgl_device, r.obj);
-                r.obj = nullptr;
+                d.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+                hr = device->CreateTexture2D(&d, nullptr, &ts.interop);
             }
-            if (r.tex)
+            if (FAILED(hr) || !ts.interop)
             {
-                r.tex->Release();
-                r.tex = nullptr;
+                std::ostringstream os;
+                os << "[accelpaint] CreateTexture2D(interop) failed (hr=0x" << std::hex << hr << ")";
+                apLog(os.str());
+                ts.interop = nullptr;
+                return false;
             }
+
+            ts.obj = wglDXRegisterObjectNV(wgl_device, ts.interop, gl_texture, GL_TEXTURE_2D, DX_WGL_ACCESS_READ_ONLY_NV);
+            if (!ts.obj)
+            {
+                std::ostringstream os;
+                os << "[accelpaint] wglDXRegisterObjectNV failed (GetLastError=" << GetLastError()
+                   << ", glGetError=0x" << std::hex << glGetError() << ")";
+                apLog(os.str());
+                ts.interop->Release();
+                ts.interop = nullptr;
+                return false;
+            }
+
+            ts.width = (int)cef_desc.Width;
+            ts.height = (int)cef_desc.Height;
+            ts.format = cef_desc.Format;
+
+            if (!logged_register)
+            {
+                std::ostringstream os;
+                os << "[accelpaint] registered interop texture: glTex=" << gl_texture
+                   << " obj=" << ts.obj << " dxfmt=" << cef_desc.Format
+                   << " " << cef_desc.Width << "x" << cef_desc.Height;
+                apLog(os.str());
+                logged_register = true;
+            }
+            return true;
+        }
+
+        void releaseTexState(TexState& ts)
+        {
+            if (ts.locked && ts.obj)
+            {
+                wglDXUnlockObjectsNV(wgl_device, 1, &ts.obj);
+                ts.locked = false;
+            }
+            if (ts.obj) { wglDXUnregisterObjectNV(wgl_device, ts.obj); ts.obj = nullptr; }
+            if (ts.interop) { ts.interop->Release(); ts.interop = nullptr; }
+            for (auto& kv : ts.opened)
+            {
+                if (kv.second) kv.second->Release();
+            }
+            ts.opened.clear();
         }
     };
 }
@@ -214,16 +287,7 @@ void AcceleratedPaintInterop::shutdown()
 
     for (auto& kv : w->textures)
     {
-        TexState& ts = kv.second;
-        if (ts.locked && ts.current)
-        {
-            w->wglDXUnlockObjectsNV(w->wgl_device, 1, &ts.current);
-            ts.locked = false;
-        }
-        for (auto& rkv : ts.regs)
-        {
-            w->releaseReg(rkv.second);
-        }
+        w->releaseTexState(kv.second);
     }
     w->textures.clear();
 
@@ -248,67 +312,40 @@ bool AcceleratedPaintInterop::import(GLuint gl_texture, void* shared_handle, int
     WinInterop* w = static_cast<WinInterop*>(mImpl);
     TexState& ts = w->textures[gl_texture];
 
-    // Already registered this shared handle to this GL texture? Just make it the
-    // current one (CEF reuses a small pool of handles, so this is the hot path).
-    auto it = ts.regs.find(shared_handle);
-    if (it != ts.regs.end())
+    // Open (and cache) the CEF shared texture for this pooled handle. CEF reuses a
+    // small set of handles, so this is a one-time open per handle.
+    ID3D11Texture2D* cef_tex = nullptr;
+    auto it = ts.opened.find(shared_handle);
+    if (it != ts.opened.end())
     {
-        ts.current = it->second.obj;
-        return true;
+        cef_tex = it->second;
     }
-
-    // New handle: open it as a D3D texture and register it against the GL texture
-    // name. WGL_ACCESS_READ_ONLY_NV - we only sample it.
-    ID3D11Texture2D* tex = w->openShared(shared_handle);
-    if (!tex)
+    else
     {
-        return false;
-    }
-    HANDLE obj = w->wglDXRegisterObjectNV(w->wgl_device, tex, gl_texture, GL_TEXTURE_2D, DX_WGL_ACCESS_READ_ONLY_NV);
-    if (!obj)
-    {
-        std::ostringstream os;
-        os << "[accelpaint] wglDXRegisterObjectNV failed (GetLastError=" << GetLastError()
-           << ", glGetError=0x" << std::hex << glGetError() << ")";
-        apLog(os.str());
-        tex->Release();
-        return false;
-    }
-    if (!w->logged_register)
-    {
-        D3D11_TEXTURE2D_DESC d = {};
-        tex->GetDesc(&d);
-        std::ostringstream os;
-        os << "[accelpaint] registered shared texture: glTex=" << gl_texture
-           << " obj=" << obj << " dxfmt=" << d.Format
-           << " " << d.Width << "x" << d.Height
-           << " misc=0x" << std::hex << d.MiscFlags;
-        apLog(os.str());
-        w->logged_register = true;
-    }
-
-    Reg r;
-    r.tex = tex;
-    r.obj = obj;
-    ts.regs[shared_handle] = r;
-    ts.current = obj;
-
-    // Bound the cache: drop registrations other than the current one.
-    if (ts.regs.size() > MAX_REGS_PER_TEXTURE)
-    {
-        for (auto rit = ts.regs.begin(); rit != ts.regs.end(); )
+        cef_tex = w->openShared(shared_handle);
+        if (!cef_tex)
         {
-            if (rit->second.obj != ts.current)
-            {
-                w->releaseReg(rit->second);
-                rit = ts.regs.erase(rit);
-            }
-            else
-            {
-                ++rit;
-            }
+            return false;
+        }
+        ts.opened[shared_handle] = cef_tex;
+    }
+
+    // (Re)create our interop texture if the CEF texture's size/format changed.
+    D3D11_TEXTURE2D_DESC cd = {};
+    cef_tex->GetDesc(&cd);
+    if (!ts.interop || ts.width != (int)cd.Width || ts.height != (int)cd.Height || ts.format != cd.Format)
+    {
+        if (!w->makeInterop(ts, gl_texture, cd))
+        {
+            return false;
         }
     }
+
+    // GPU-copy this frame's CEF content into our (GL-registered) interop texture.
+    // The interop object is only locked during draw, so DX owns it here - the
+    // copy is valid. Flush so the copy is submitted before the draw locks it.
+    w->context->CopyResource(ts.interop, cef_tex);
+    w->context->Flush();
     return true;
 }
 
@@ -325,9 +362,9 @@ void AcceleratedPaintInterop::lockForDraw(GLuint gl_texture)
         return;
     }
     TexState& ts = it->second;
-    if (ts.current && !ts.locked)
+    if (ts.obj && !ts.locked)
     {
-        if (!w->wglDXLockObjectsNV(w->wgl_device, 1, &ts.current) && !w->logged_lock_fail)
+        if (!w->wglDXLockObjectsNV(w->wgl_device, 1, &ts.obj) && !w->logged_lock_fail)
         {
             std::ostringstream os;
             os << "[accelpaint] wglDXLockObjectsNV failed (GetLastError=" << GetLastError() << ")";
@@ -351,9 +388,9 @@ void AcceleratedPaintInterop::unlockAfterDraw(GLuint gl_texture)
         return;
     }
     TexState& ts = it->second;
-    if (ts.current && ts.locked)
+    if (ts.obj && ts.locked)
     {
-        w->wglDXUnlockObjectsNV(w->wgl_device, 1, &ts.current);
+        w->wglDXUnlockObjectsNV(w->wgl_device, 1, &ts.obj);
         ts.locked = false;
     }
 }
