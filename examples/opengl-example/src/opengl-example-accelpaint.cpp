@@ -33,6 +33,19 @@
 #include <windows.h>
 #include <d3d11_1.h>
 #include <unordered_map>
+#include <sstream>
+
+// The example runs as a GUI-subsystem process (CEF's bootstrap.exe), so stdout
+// is usually invisible. Mirror diagnostics to the debugger (Visual Studio Output
+// window / DebugView) as well so they can actually be seen.
+void accelPaintLog(const std::string& msg)
+{
+    std::cout << msg << std::endl;
+    OutputDebugStringA((msg + "\n").c_str());
+}
+
+// file-scope short alias usable from both the helpers and the class methods
+static inline void apLog(const std::string& msg) { accelPaintLog(msg); }
 
 namespace
 {
@@ -80,6 +93,8 @@ namespace
 
         std::unordered_map<GLuint, TexState> textures;
         bool logged_open_path = false;
+        bool logged_register = false;
+        bool logged_lock_fail = false;
 
         // Open a CEF shared-texture handle as a D3D11 texture. Modern Chromium
         // uses NT handles (OpenSharedResource1); older builds a legacy global
@@ -94,7 +109,7 @@ namespace
                 HRESULT hr = device1->OpenSharedResource1(h, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&tex));
                 if (SUCCEEDED(hr) && tex)
                 {
-                    if (!logged_open_path) { std::cout << "[accelpaint] shared texture via OpenSharedResource1 (NT handle)\n"; logged_open_path = true; }
+                    if (!logged_open_path) { apLog("[accelpaint] shared texture via OpenSharedResource1 (NT handle)"); logged_open_path = true; }
                     return tex;
                 }
             }
@@ -102,11 +117,13 @@ namespace
             HRESULT hr = device->OpenSharedResource(h, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&tex));
             if (SUCCEEDED(hr) && tex)
             {
-                if (!logged_open_path) { std::cout << "[accelpaint] shared texture via OpenSharedResource (legacy handle)\n"; logged_open_path = true; }
+                if (!logged_open_path) { apLog("[accelpaint] shared texture via OpenSharedResource (legacy handle)"); logged_open_path = true; }
                 return tex;
             }
 
-            std::cerr << "[accelpaint] OpenSharedResource(1) failed (hr=0x" << std::hex << hr << std::dec << ")\n";
+            std::ostringstream os;
+            os << "[accelpaint] OpenSharedResource(1) failed (hr=0x" << std::hex << hr << ")";
+            apLog(os.str());
             return nullptr;
         }
 
@@ -148,7 +165,7 @@ bool AcceleratedPaintInterop::init()
     if (!w->wglDXOpenDeviceNV || !w->wglDXRegisterObjectNV || !w->wglDXLockObjectsNV ||
         !w->wglDXUnlockObjectsNV || !w->wglDXUnregisterObjectNV || !w->wglDXCloseDeviceNV)
     {
-        std::cerr << "[accelpaint] WGL_NV_DX_interop2 not available; using CPU paint\n";
+        apLog("[accelpaint] WGL_NV_DX_interop2 not available; using CPU paint");
         delete w;
         return false;
     }
@@ -162,7 +179,9 @@ bool AcceleratedPaintInterop::init()
                                    nullptr, 0, D3D11_SDK_VERSION, &w->device, &got, &w->context);
     if (FAILED(hr) || !w->device)
     {
-        std::cerr << "[accelpaint] D3D11CreateDevice failed (hr=0x" << std::hex << hr << std::dec << "); using CPU paint\n";
+        std::ostringstream os;
+        os << "[accelpaint] D3D11CreateDevice failed (hr=0x" << std::hex << hr << "); using CPU paint";
+        apLog(os.str());
         delete w;
         return false;
     }
@@ -171,7 +190,7 @@ bool AcceleratedPaintInterop::init()
     w->wgl_device = w->wglDXOpenDeviceNV(w->device);
     if (!w->wgl_device)
     {
-        std::cerr << "[accelpaint] wglDXOpenDeviceNV failed; using CPU paint\n";
+        apLog("[accelpaint] wglDXOpenDeviceNV failed; using CPU paint");
         if (w->device1) w->device1->Release();
         if (w->context) w->context->Release();
         if (w->device) w->device->Release();
@@ -181,7 +200,7 @@ bool AcceleratedPaintInterop::init()
 
     mImpl = w;
     mValid = true;
-    std::cout << "[accelpaint] zero-copy paint enabled (D3D11 + WGL_NV_DX_interop2)\n";
+    apLog("[accelpaint] zero-copy paint enabled (D3D11 + WGL_NV_DX_interop2)");
     return true;
 }
 
@@ -248,9 +267,24 @@ bool AcceleratedPaintInterop::import(GLuint gl_texture, void* shared_handle, int
     HANDLE obj = w->wglDXRegisterObjectNV(w->wgl_device, tex, gl_texture, GL_TEXTURE_2D, DX_WGL_ACCESS_READ_ONLY_NV);
     if (!obj)
     {
-        std::cerr << "[accelpaint] wglDXRegisterObjectNV failed\n";
+        std::ostringstream os;
+        os << "[accelpaint] wglDXRegisterObjectNV failed (GetLastError=" << GetLastError()
+           << ", glGetError=0x" << std::hex << glGetError() << ")";
+        apLog(os.str());
         tex->Release();
         return false;
+    }
+    if (!w->logged_register)
+    {
+        D3D11_TEXTURE2D_DESC d = {};
+        tex->GetDesc(&d);
+        std::ostringstream os;
+        os << "[accelpaint] registered shared texture: glTex=" << gl_texture
+           << " obj=" << obj << " dxfmt=" << d.Format
+           << " " << d.Width << "x" << d.Height
+           << " misc=0x" << std::hex << d.MiscFlags;
+        apLog(os.str());
+        w->logged_register = true;
     }
 
     Reg r;
@@ -293,7 +327,13 @@ void AcceleratedPaintInterop::lockForDraw(GLuint gl_texture)
     TexState& ts = it->second;
     if (ts.current && !ts.locked)
     {
-        w->wglDXLockObjectsNV(w->wgl_device, 1, &ts.current);
+        if (!w->wglDXLockObjectsNV(w->wgl_device, 1, &ts.current) && !w->logged_lock_fail)
+        {
+            std::ostringstream os;
+            os << "[accelpaint] wglDXLockObjectsNV failed (GetLastError=" << GetLastError() << ")";
+            apLog(os.str());
+            w->logged_lock_fail = true;
+        }
         ts.locked = true;
     }
 }
@@ -319,6 +359,11 @@ void AcceleratedPaintInterop::unlockAfterDraw(GLuint gl_texture)
 }
 
 #else  // !_WIN32 - zero-copy interop not implemented on this platform yet
+
+void accelPaintLog(const std::string& msg)
+{
+    std::cout << msg << std::endl;
+}
 
 AcceleratedPaintInterop::AcceleratedPaintInterop() = default;
 AcceleratedPaintInterop::~AcceleratedPaintInterop() { shutdown(); }

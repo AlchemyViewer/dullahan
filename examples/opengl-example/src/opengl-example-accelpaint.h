@@ -41,6 +41,12 @@
 #include <glad/glad.h>
 #endif
 
+#include <string>
+
+// Diagnostic log that is visible even when the example runs as a GUI-subsystem
+// process: writes to stdout and (on Windows) the debugger output / DebugView.
+void accelPaintLog(const std::string& msg);
+
 // Bridges CEF's GPU shared texture (OnAcceleratedPaint) to an OpenGL texture
 // without a CPU round-trip. Call init() once with a current GL context; if it
 // returns false the platform/driver can't do zero-copy and the caller should

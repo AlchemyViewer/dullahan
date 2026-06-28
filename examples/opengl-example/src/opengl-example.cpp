@@ -789,11 +789,22 @@ void openglExample::onPageChanged(int tab_index, const unsigned char* pixels, in
 // Zero-copy paint: CEF handed us a GPU shared-texture handle for this tab's
 // frame. Alias it into the tab's GL texture via the interop (no CPU copy / no
 // glTexImage2D). The handle is only valid for the duration of this callback.
-void openglExample::onAcceleratedPaint(int tab_index, void* native_handle, int /*format*/, const int width, const int height)
+void openglExample::onAcceleratedPaint(int tab_index, void* native_handle, int format, const int width, const int height)
 {
     if (tab_index < 0 || tab_index >= (int)mTabs.size())
     {
         return;
+    }
+
+    static bool logged_first = false;
+    if (! logged_first)
+    {
+        std::ostringstream os;
+        os << "[accelpaint] first accelerated frame: tab=" << tab_index
+           << " handle=" << native_handle << " format=" << format
+           << " " << width << "x" << height;
+        accelPaintLog(os.str());
+        logged_first = true;
     }
 
     Tab& tab = mTabs[tab_index];
