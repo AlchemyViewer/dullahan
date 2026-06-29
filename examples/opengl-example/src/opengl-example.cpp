@@ -96,6 +96,114 @@ namespace
     {
         return sdlKeymodToDullahan(SDL_GetModState());
     }
+
+    // --- Minimal column-major 4x4 matrix helpers (no GLM dependency) ----------
+    // Only what the example needs: a symmetric perspective plus a translate and
+    // X/Y rotations, composed in the same order pick() assumes. Column-major so
+    // they go straight to glUniformMatrix4fv with transpose = GL_FALSE.
+
+    // out = a * b (both column-major)
+    void mat4_multiply(const float* a, const float* b, float* out)
+    {
+        float r[16];
+        for (int col = 0; col < 4; ++col)
+        {
+            for (int row = 0; row < 4; ++row)
+            {
+                r[col * 4 + row] =
+                    a[0 * 4 + row] * b[col * 4 + 0] +
+                    a[1 * 4 + row] * b[col * 4 + 1] +
+                    a[2 * 4 + row] * b[col * 4 + 2] +
+                    a[3 * 4 + row] * b[col * 4 + 3];
+            }
+        }
+        for (int i = 0; i < 16; ++i) out[i] = r[i];
+    }
+
+    // Symmetric perspective, equivalent to the glFrustum() the example used:
+    // frustum_height = near * tan(fov/2), frustum_width = height * aspect.
+    void mat4_perspective(float fov_deg, float aspect, float near_p, float far_p, float* out)
+    {
+        const float pi = 3.14159265358979323846f;
+        float f = 1.0f / std::tan(fov_deg * 0.5f * pi / 180.0f);
+        for (int i = 0; i < 16; ++i) out[i] = 0.0f;
+        out[0] = f / aspect;
+        out[5] = f;
+        out[10] = (far_p + near_p) / (near_p - far_p);
+        out[11] = -1.0f;
+        out[14] = (2.0f * far_p * near_p) / (near_p - far_p);
+    }
+
+    void mat4_translate(float x, float y, float z, float* out)
+    {
+        for (int i = 0; i < 16; ++i) out[i] = 0.0f;
+        out[0] = out[5] = out[10] = out[15] = 1.0f;
+        out[12] = x; out[13] = y; out[14] = z;
+    }
+
+    void mat4_rotate_x(float deg, float* out)
+    {
+        const float pi = 3.14159265358979323846f;
+        float c = std::cos(deg * pi / 180.0f);
+        float s = std::sin(deg * pi / 180.0f);
+        for (int i = 0; i < 16; ++i) out[i] = 0.0f;
+        out[0] = 1.0f; out[15] = 1.0f;
+        out[5] = c;  out[6] = s;
+        out[9] = -s; out[10] = c;
+    }
+
+    void mat4_rotate_y(float deg, float* out)
+    {
+        const float pi = 3.14159265358979323846f;
+        float c = std::cos(deg * pi / 180.0f);
+        float s = std::sin(deg * pi / 180.0f);
+        for (int i = 0; i < 16; ++i) out[i] = 0.0f;
+        out[5] = 1.0f; out[15] = 1.0f;
+        out[0] = c;  out[2] = -s;
+        out[8] = s;  out[10] = c;
+    }
+
+    // --- Quad shader (GLSL for OpenGL 4.1 Core) -------------------------------
+    const char* kQuadVertexShader = R"(#version 410 core
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec2 aUV;
+uniform mat4 uMVP;
+out vec2 vUV;
+void main()
+{
+    vUV = aUV;
+    gl_Position = uMVP * vec4(aPos, 1.0);
+}
+)";
+
+    const char* kQuadFragmentShader = R"(#version 410 core
+in vec2 vUV;
+uniform sampler2D uTex;
+out vec4 fragColor;
+void main()
+{
+    fragColor = texture(uTex, vUV);
+}
+)";
+
+    // Compile one shader stage; logs and returns 0 on failure.
+    GLuint compileShader(GLenum type, const char* src)
+    {
+        GLuint sh = glCreateShader(type);
+        glShaderSource(sh, 1, &src, nullptr);
+        glCompileShader(sh);
+        GLint ok = GL_FALSE;
+        glGetShaderiv(sh, GL_COMPILE_STATUS, &ok);
+        if (!ok)
+        {
+            char log[1024] = {0};
+            glGetShaderInfoLog(sh, sizeof(log) - 1, nullptr, log);
+            std::cerr << "[gl] shader compile failed: " << log << std::endl;
+            glDeleteShader(sh);
+            return 0;
+        }
+        return sh;
+    }
 }
 
 openglExample::openglExample() :
@@ -112,18 +220,16 @@ void openglExample::resizeCallback(int width, int height)
 {
     glViewport(0, 0, width, height);
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-
-    const double pi = 3.1415926;
-    const double near_plane = 0.1f;
-    const double far_plane = 100.0f;
-    const double fov = 60.0;
-    double frustum_height = tan(fov / 360.0 * pi) * near_plane;
-    double frustum_width = frustum_height * (double)width / (double)height;
-    glFrustum(-frustum_width, frustum_width, -frustum_height, frustum_height, near_plane, far_plane);
-
-    glMatrixMode(GL_MODELVIEW);
+    // Recompute the projection matrix (kept in mProj, applied in draw()). Uses
+    // the same fov/near/far constants pick() recomputes, so ray-picking stays
+    // consistent with what is drawn.
+    if (height > 0)
+    {
+        const float near_plane = 0.1f;
+        const float far_plane = 100.0f;
+        const float fov = 60.0f;
+        mat4_perspective(fov, (float)width / (float)height, near_plane, far_plane, mProj);
+    }
 
     // every tab renders at the window size
     for (auto& tab : mTabs)
@@ -463,11 +569,13 @@ bool openglExample::init()
     dullahanInstallCefAppCompat();
 #endif
 
-    // Request a legacy OpenGL 2.1 compatibility context to match the
-    // fixed-function pipeline used to draw the textured quad.
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    // Request an OpenGL 4.1 Core context - the highest core profile macOS offers,
+    // and our minimum target on every platform. The forward-compatible flag is
+    // required for a core context on macOS (it drops all removed legacy features).
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
@@ -499,11 +607,22 @@ bool openglExample::init()
     }
 #endif
 
+    std::cout << "[gl] vendor=" << (const char*)glGetString(GL_VENDOR)
+              << " renderer=" << (const char*)glGetString(GL_RENDERER)
+              << " version=" << (const char*)glGetString(GL_VERSION) << std::endl;
+
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClearDepth(1.0f);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+
+    // Build the shader program + quad VAO/VBO used to draw the browser texture.
+    // Core profile has no fixed-function pipeline, so this is mandatory.
+    if (! initRender())
+    {
+        std::cerr << "Failed to initialize the OpenGL render pipeline" << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
     // enable vsync (ignore failure, e.g. when no compositor is present)
     SDL_GL_SetSwapInterval(1);
@@ -551,9 +670,22 @@ bool openglExample::init()
         Tab tab;
         tab.url = tab_urls[i];
 
-        // Texture used to display this tab's browser output on the quad
+        // Texture used to display this tab's browser output on the quad. Set the
+        // sampling state once here (core profile has no default; the old code set
+        // it every draw).
         glGenTextures(1, &tab.texture);
         glBindTexture(GL_TEXTURE_2D, tab.texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // Allocate level 0 now so the texture is complete from the first frame.
+        // Without this, the draws before the first paint callback sample an
+        // incomplete texture - which a core-profile sampler2D reports as
+        // "texture unloadable ... using zero texture". The paint paths reallocate
+        // it to the real frame size on their first update.
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mTextureWidth, mTextureHeight, 0,
+                     GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
 
         // As of CEF 139, the root cache folder must be unique and an absolute
         // path. (Only the first browser's value is honoured once the shared
@@ -712,45 +844,101 @@ bool openglExample::pick(int* tx, int* ty)
     return inside;
 }
 
+// Build the shader program + static quad (VAO/VBO). The quad spans [-1, 1] in x
+// and y with texcoords matching the old fixed-function mapping (and pick()):
+// (-1,-1)->(0,1), (1,-1)->(1,1), (1,1)->(1,0), (-1,1)->(0,0).
+bool openglExample::initRender()
+{
+    GLuint vs = compileShader(GL_VERTEX_SHADER, kQuadVertexShader);
+    GLuint fs = compileShader(GL_FRAGMENT_SHADER, kQuadFragmentShader);
+    if (!vs || !fs)
+    {
+        return false;
+    }
+
+    mProgram = glCreateProgram();
+    glAttachShader(mProgram, vs);
+    glAttachShader(mProgram, fs);
+    glLinkProgram(mProgram);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+
+    GLint linked = GL_FALSE;
+    glGetProgramiv(mProgram, GL_LINK_STATUS, &linked);
+    if (!linked)
+    {
+        char log[1024] = {0};
+        glGetProgramInfoLog(mProgram, sizeof(log) - 1, nullptr, log);
+        std::cerr << "[gl] program link failed: " << log << std::endl;
+        glDeleteProgram(mProgram);
+        mProgram = 0;
+        return false;
+    }
+
+    mMvpLoc = glGetUniformLocation(mProgram, "uMVP");
+    mTexLoc = glGetUniformLocation(mProgram, "uTex");
+
+    // Interleaved: vec3 position, vec2 uv. Two triangles.
+    const float verts[] =
+    {
+        // pos                 // uv
+        -1.0f, -1.0f, 0.0f,    0.0f, 1.0f,
+         1.0f, -1.0f, 0.0f,    1.0f, 1.0f,
+         1.0f,  1.0f, 0.0f,    1.0f, 0.0f,
+
+        -1.0f, -1.0f, 0.0f,    0.0f, 1.0f,
+         1.0f,  1.0f, 0.0f,    1.0f, 0.0f,
+        -1.0f,  1.0f, 0.0f,    0.0f, 0.0f,
+    };
+
+    glGenVertexArrays(1, &mVAO);
+    glGenBuffers(1, &mVBO);
+    glBindVertexArray(mVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    return true;
+}
+
 void openglExample::draw()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glLoadIdentity();
+    // modelview = T(pan, cameraDist) * Rx(mXRotation) * Ry(mYRotation), the same
+    // order pick() inverts. Then mvp = projection * modelview.
+    float t[16], rx[16], ry[16], mv[16], tmp[16], mvp[16];
+    mat4_translate((float)mXPan, (float)mYPan, (float)mCameraDist, t);
+    mat4_rotate_x((float)mXRotation, rx);
+    mat4_rotate_y((float)mYRotation, ry);
+    mat4_multiply(t, rx, tmp);
+    mat4_multiply(tmp, ry, mv);
+    mat4_multiply(mProj, mv, mvp);
 
-    glTranslatef((GLfloat)mXPan, (GLfloat)mYPan, (GLfloat)mCameraDist);
-
-    glRotatef((GLfloat)mXRotation, 1.0f, 0.0f, 0.0f);
-    glRotatef((GLfloat)mYRotation, 0.0f, 1.0f, 0.0f);
-    glRotatef(0.0f, 0.0f, 0.0f, 1.0f);
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glEnable(GL_TEXTURE_2D);
-    glColor3f(1.0, 1.0, 1.0);
-
-    // draw the browser output texture on a quad spanning [-1, 1] in x and y.
-    // pick() relies on this same geometry / texcoord mapping.
     // In accelerated mode the texture aliases a GPU shared texture, so it must be
-    // locked for the duration of the GL read (the interop's GL<->DX sync point).
+    // locked for the duration of the GL read (the interop's GL<->DX sync point;
+    // a no-op on platforms whose import path produces a standalone texture).
     if (mAcceleratedPaint)
     {
         mAccelPaint.lockForDraw((GLuint)mTextureId);
     }
 
+    glUseProgram(mProgram);
+    glUniformMatrix4fv(mMvpLoc, 1, GL_FALSE, mvp);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, (GLuint)mTextureId);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glUniform1i(mTexLoc, 0);
 
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 1.0);
-    glVertex3f(-1.0f, -1.0f, 0.0f);
-    glTexCoord2f(1.0, 1.0);
-    glVertex3f( 1.0f, -1.0f, 0.0f);
-    glTexCoord2f(1.0, 0.0);
-    glVertex3f( 1.0f,  1.0f, 0.0f);
-    glTexCoord2f(0.0, 0.0);
-    glVertex3f(-1.0f,  1.0f, 0.0f);
-    glEnd();
+    glBindVertexArray(mVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+
+    glUseProgram(0);
 
     if (mAcceleratedPaint)
     {
@@ -863,13 +1051,14 @@ void openglExample::initUI()
     ImGui::StyleColorsDark();
     io.FontGlobalScale = 1.2f;
     ImGui_ImplSDL3_InitForOpenGL(mWindow, mGLContext);
-    ImGui_ImplOpenGL2_Init();
+    // GLSL version string must match the 4.1 Core context.
+    ImGui_ImplOpenGL3_Init("#version 410 core");
 }
 
 void openglExample::updateUI()
 {
     // main host for UI - URL and bookmarks drop-down
-    ImGui_ImplOpenGL2_NewFrame();
+    ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
@@ -1121,7 +1310,7 @@ void openglExample::updateUI()
     drawContextMenu();
 
     ImGui::Render();
-    ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 // Right-click context menu for the page. Opened from mouseButtonCallback() on a
@@ -1196,7 +1385,7 @@ void openglExample::drawContextMenu()
 
 void openglExample::resetUI()
 {
-    ImGui_ImplOpenGL2_Shutdown();
+    ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 }
@@ -1326,6 +1515,11 @@ bool openglExample::reset()
     // Tear down the interop (unregister objects, close the DX device) while the
     // GL context is still current.
     mAccelPaint.shutdown();
+
+    // Release the render pipeline objects while the context is still current.
+    if (mVBO) { glDeleteBuffers(1, &mVBO); mVBO = 0; }
+    if (mVAO) { glDeleteVertexArrays(1, &mVAO); mVAO = 0; }
+    if (mProgram) { glDeleteProgram(mProgram); mProgram = 0; }
 
     SDL_GL_DestroyContext(mGLContext);
 

@@ -251,12 +251,16 @@ if (BUILD_DULLAHAN_EXAMPLE)
         SET_PROPERTY(DIRECTORY PROPERTY VS_STARTUP_PROJECT "opengl-example")
     elseif(DARWIN)
         find_library (OPENGL_FRAMEWORK OpenGL)
+        # zero-copy paint: IOSurface (CGLTexImageIOSurface2D) lives in the OpenGL
+        # framework; the IOSurfaceRef type comes from the IOSurface framework.
+        find_library (IOSURFACE_FRAMEWORK IOSurface)
         target_link_libraries (
             opengl-example
             dullahan
             ll::SDL3
             imgui::imgui
             ${OPENGL_FRAMEWORK}
+            ${IOSURFACE_FRAMEWORK}
         )
         set(EXAMPLE_FRAMEWORKS
             "${CEF_FRAMEWORK_DIR}"

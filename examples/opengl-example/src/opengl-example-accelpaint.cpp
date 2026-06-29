@@ -415,7 +415,217 @@ void AcceleratedPaintInterop::unlockAfterDraw(GLuint gl_texture)
     }
 }
 
-#else  // !_WIN32 - zero-copy interop not implemented on this platform yet
+#elif defined(__APPLE__)
+
+#include <OpenGL/CGLCurrent.h>       // CGLGetCurrentContext
+#include <OpenGL/CGLIOSurface.h>     // CGLTexImageIOSurface2D
+#include <IOSurface/IOSurfaceRef.h>  // IOSurfaceRef
+
+#include <unordered_map>
+#include <sstream>
+
+void accelPaintLog(const std::string& msg)
+{
+    std::cout << msg << std::endl;
+}
+
+static inline void apLog(const std::string& msg) { accelPaintLog(msg); }
+
+namespace
+{
+    // OpenGL 4.1 Core only binds an IOSurface to a rectangle texture (not
+    // GL_TEXTURE_2D), so the alias texture uses GL_TEXTURE_RECTANGLE - core since
+    // GL 3.1 (declared by <OpenGL/gl3.h>); no ARB-suffixed fallback needed.
+
+    // Per consumer GL texture: a rectangle texture that aliases the current
+    // frame's IOSurface (via CGLTexImageIOSurface2D), recreated when the frame
+    // size changes. Each frame we GPU-blit it into the consumer's GL_TEXTURE_2D so
+    // the example's draw path (GL_TEXTURE_2D + normalized texcoords) is unchanged
+    // - the analog of the Windows path's GPU CopyResource into the GL-registered
+    // intermediate. No CPU readback, so it stays zero-copy CPU-side.
+    struct TexState
+    {
+        GLuint rect_tex = 0;   // GL_TEXTURE_RECTANGLE aliasing the IOSurface
+        int width = 0;         // current IOSurface size
+        int height = 0;
+        int dst_width = 0;     // size the consumer GL_TEXTURE_2D is allocated at
+        int dst_height = 0;
+    };
+
+    struct MacInterop
+    {
+        GLuint read_fbo = 0;   // rectangle (IOSurface) source attachment
+        GLuint draw_fbo = 0;   // consumer GL_TEXTURE_2D destination attachment
+        std::unordered_map<GLuint, TexState> textures;
+        bool logged_import = false;
+    };
+}
+
+AcceleratedPaintInterop::AcceleratedPaintInterop() = default;
+
+AcceleratedPaintInterop::~AcceleratedPaintInterop()
+{
+    shutdown();
+}
+
+bool AcceleratedPaintInterop::init()
+{
+    if (!CGLGetCurrentContext())
+    {
+        apLog("[accelpaint] no current CGL context; using CPU paint");
+        return false;
+    }
+
+    MacInterop* m = new MacInterop();
+    glGenFramebuffers(1, &m->read_fbo);
+    glGenFramebuffers(1, &m->draw_fbo);
+    if (!m->read_fbo || !m->draw_fbo)
+    {
+        apLog("[accelpaint] glGenFramebuffers failed; using CPU paint");
+        if (m->read_fbo) glDeleteFramebuffers(1, &m->read_fbo);
+        if (m->draw_fbo) glDeleteFramebuffers(1, &m->draw_fbo);
+        delete m;
+        return false;
+    }
+
+    mImpl = m;
+    mValid = true;
+    apLog("[accelpaint] zero-copy paint enabled (IOSurface + CGLTexImageIOSurface2D)");
+    return true;
+}
+
+void AcceleratedPaintInterop::shutdown()
+{
+    if (!mImpl)
+    {
+        return;
+    }
+    MacInterop* m = static_cast<MacInterop*>(mImpl);
+
+    for (auto& kv : m->textures)
+    {
+        if (kv.second.rect_tex) glDeleteTextures(1, &kv.second.rect_tex);
+    }
+    m->textures.clear();
+
+    if (m->read_fbo) glDeleteFramebuffers(1, &m->read_fbo);
+    if (m->draw_fbo) glDeleteFramebuffers(1, &m->draw_fbo);
+
+    delete m;
+    mImpl = nullptr;
+    mValid = false;
+}
+
+bool AcceleratedPaintInterop::import(GLuint gl_texture, void* shared_handle, int width, int height)
+{
+    if (!mValid || !shared_handle || width <= 0 || height <= 0)
+    {
+        return false;
+    }
+
+    // On macOS the OnAcceleratedPaint "native handle" is an IOSurfaceRef (see
+    // dullahan_render_handler::OnAcceleratedPaint). It is valid only during this
+    // callback, so bind + blit it now.
+    IOSurfaceRef io_surface = reinterpret_cast<IOSurfaceRef>(shared_handle);
+    CGLContextObj cgl = CGLGetCurrentContext();
+    if (!cgl)
+    {
+        return false;
+    }
+
+    MacInterop* m = static_cast<MacInterop*>(mImpl);
+    TexState& ts = m->textures[gl_texture];
+
+    // Save the bindings we touch so the example's GL state is left undisturbed.
+    GLint prev_tex2d = 0, prev_read_fbo = 0, prev_draw_fbo = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex2d);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read_fbo);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_draw_fbo);
+
+    if (!ts.rect_tex)
+    {
+        glGenTextures(1, &ts.rect_tex);
+    }
+    ts.width = width;
+    ts.height = height;
+
+    // Alias this frame's IOSurface into the rectangle texture (no copy).
+    glBindTexture(GL_TEXTURE_RECTANGLE, ts.rect_tex);
+    glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    CGLError err = CGLTexImageIOSurface2D(cgl, GL_TEXTURE_RECTANGLE,
+        GL_RGBA, width, height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, io_surface, 0);
+    if (err != kCGLNoError)
+    {
+        std::ostringstream os;
+        os << "[accelpaint] CGLTexImageIOSurface2D failed (CGLError=" << err << ")";
+        apLog(os.str());
+        glBindTexture(GL_TEXTURE_RECTANGLE, 0);
+        glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex2d);
+        return false;
+    }
+
+    // Ensure the consumer's GL_TEXTURE_2D is allocated at the frame size.
+    glBindTexture(GL_TEXTURE_2D, gl_texture);
+    if (ts.dst_width != width || ts.dst_height != height)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+                     GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+        ts.dst_width = width;
+        ts.dst_height = height;
+    }
+
+    // GPU blit IOSurface(rectangle) -> consumer GL_TEXTURE_2D, texel for texel.
+    // Orientation is preserved (no Y flip), matching the Windows accelerated path
+    // which aliases the GPU texture directly; if a device shows the page inverted,
+    // swap the dst Y coordinates below (0,height,width,0).
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m->read_fbo);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+        GL_TEXTURE_RECTANGLE, ts.rect_tex, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m->draw_fbo);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+        GL_TEXTURE_2D, gl_texture, 0);
+
+    bool ok = (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE &&
+               glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    if (ok)
+    {
+        glBlitFramebuffer(0, 0, width, height,
+                             0, 0, width, height,
+                             GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
+
+    // Detach + restore the bindings we saved.
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE, 0, 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prev_draw_fbo);
+    glBindTexture(GL_TEXTURE_RECTANGLE, 0);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex2d);
+
+    if (!ok)
+    {
+        apLog("[accelpaint] blit framebuffer incomplete; using CPU paint for this frame");
+        return false;
+    }
+
+    if (!m->logged_import)
+    {
+        std::ostringstream os;
+        os << "[accelpaint] IOSurface bound + blit: glTex=" << gl_texture
+           << " " << width << "x" << height;
+        apLog(os.str());
+        m->logged_import = true;
+    }
+    return true;
+}
+
+// The blit already produced a self-contained GL_TEXTURE_2D, so there is no live
+// alias to lock around the draw (unlike the Windows GL<->DX interop).
+void AcceleratedPaintInterop::lockForDraw(GLuint) {}
+void AcceleratedPaintInterop::unlockAfterDraw(GLuint) {}
+
+#else  // other platforms - zero-copy interop not implemented yet
 
 void accelPaintLog(const std::string& msg)
 {

@@ -2,8 +2,9 @@
     @brief  Dullahan OpenGL Example application
 
             Cross platform example for illustration and standalone testing
-            of Dullahan features. Renders output to an OpenGL 2.1 quad
-            and allows interaction using the mouse and keyboard.
+            of Dullahan features. Renders output to a textured quad with the
+            OpenGL 4.1 Core programmable pipeline (shader + VAO) and allows
+            interaction using the mouse and keyboard.
 
             Windowing, input and the OpenGL context are provided by SDL3.
 
@@ -38,10 +39,16 @@
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
-#include "imgui_impl_opengl2.h"
+#include "imgui_impl_opengl3.h"
 
 #if LL_DARWIN
-#include <OpenGL/gl.h>
+// macOS's highest core profile is OpenGL 4.1 Core; <OpenGL/gl3.h> exposes the
+// core API (the legacy <OpenGL/gl.h> would pull in the removed fixed-function
+// entry points). GL_SILENCE_DEPRECATION quiets Apple's "OpenGL is deprecated".
+#ifndef GL_SILENCE_DEPRECATION
+#define GL_SILENCE_DEPRECATION
+#endif
+#include <OpenGL/gl3.h>
 #else
 #include <glad/glad.h>
 #endif
@@ -60,6 +67,9 @@ class openglExample
         bool init();
         bool run();
         void draw();
+        // build the quad shader program + VAO/VBO (core profile needs a VAO and a
+        // shader to draw anything); called once from init() after the GL loader.
+        bool initRender();
         void resizeCallback(int width, int height);
         void mouseButtonCallback(Uint8 sdl_button, bool down, int clicks);
         void mouseMoveCallback(float xpos, float ypos);
@@ -113,6 +123,17 @@ class openglExample
         int mTextureWidth = 1024;
         int mTextureHeight = 1024;
         dullahan* mDullahan;
+
+        // OpenGL 4.1 Core programmable pipeline: a single shader program and a
+        // static quad (VAO/VBO) replace the old fixed-function glBegin draw. The
+        // projection matrix is recomputed on resize and kept here; the modelview
+        // is built per-frame in draw(). Matrices are column-major float[16].
+        GLuint mProgram = 0;
+        GLuint mVAO = 0;
+        GLuint mVBO = 0;
+        GLint mMvpLoc = -1;
+        GLint mTexLoc = -1;
+        float mProj[16] = {0};
 
         // Zero-copy paint: when enabled + supported, CEF hands us a GPU shared
         // texture (OnAcceleratedPaint) which mAccelPaint aliases into the tab's GL

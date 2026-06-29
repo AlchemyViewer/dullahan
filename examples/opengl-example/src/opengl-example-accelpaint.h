@@ -4,9 +4,10 @@
             Turns a CEF OnAcceleratedPaint shared-texture handle into an OpenGL
             texture with no CPU copy. On Windows this is D3D11 + the
             WGL_NV_DX_interop2 extension (the same approach that ports to the
-            viewer's media-texture path). On other platforms it is not
-            implemented yet, so init() returns false and the example falls back
-            to the CPU onPageChanged path.
+            viewer's media-texture path). On macOS the handle is an IOSurface,
+            bound via CGLTexImageIOSurface2D and GPU-blitted into the GL texture.
+            On other platforms it is not implemented yet, so init() returns false
+            and the example falls back to the CPU onPageChanged path.
 
     @author Alchemy Viewer Project - 2026
 
@@ -34,9 +35,12 @@
 #pragma once
 
 // GL types (GLuint / GLenum). Match opengl-example.h's GL include so the two
-// headers can be used together without a circular include.
+// headers can be used together without a circular include. OpenGL 4.1 Core.
 #if LL_DARWIN
-#include <OpenGL/gl.h>
+#ifndef GL_SILENCE_DEPRECATION
+#define GL_SILENCE_DEPRECATION
+#endif
+#include <OpenGL/gl3.h>
 #else
 #include <glad/glad.h>
 #endif
