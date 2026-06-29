@@ -164,7 +164,7 @@ class dullahan
             std::string user_agent_substring = std::string();
 
             // default frame rate
-            int frame_rate = 60;
+            int frame_rate = 30;
 
             // enable/disable features - most obvious but listed for completeness
             bool begin_frame_scheduling = false;        // fixes issue when onPaint not called
