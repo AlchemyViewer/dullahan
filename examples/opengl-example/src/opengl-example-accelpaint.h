@@ -6,8 +6,11 @@
             WGL_NV_DX_interop2 extension (the same approach that ports to the
             viewer's media-texture path). On macOS the handle is an IOSurface,
             bound via CGLTexImageIOSurface2D and GPU-blitted into the GL texture.
-            On other platforms it is not implemented yet, so init() returns false
-            and the example falls back to the CPU onPageChanged path.
+            On Linux the frame is a dma-buf (one or more planes + a DRM modifier),
+            imported as an EGLImage and GPU-blitted into the GL texture; this needs
+            an EGL context, so run under Wayland (or force EGL on X11 with
+            SDL_VIDEO_FORCE_EGL=1), else init() returns false and the example falls
+            back to the CPU onPageChanged path.
 
     @author Alchemy Viewer Project - 2026
 
@@ -72,6 +75,16 @@ class AcceleratedPaintInterop
         // handle is only valid during the callback, so call this from there.
         // Returns true if gl_texture now aliases the frame.
         bool import(GLuint gl_texture, void* shared_handle, int width, int height);
+
+        // Linux dma-buf variant of import(): bring CEF's per-plane dma-buf into
+        // gl_texture (imported as an EGLImage, then GPU-blitted so gl_texture is a
+        // standalone GL_TEXTURE_2D - no lock needed around the draw). The fds are
+        // valid only during the callback, so call this from there. Implemented on
+        // Linux; a no-op (returns false) elsewhere. plane_count<=4; a compressed
+        // (CCS) modifier carries an auxiliary plane that must be passed too.
+        bool importDmabuf(GLuint gl_texture, int plane_count,
+                          const int* fds, const unsigned int* strides, const unsigned long long* offsets,
+                          int format, int width, int height, unsigned long long modifier);
 
         // Lock / unlock the interop object around a GL read of gl_texture (i.e.
         // wrap the quad draw). No-ops if gl_texture isn't a known interop texture.

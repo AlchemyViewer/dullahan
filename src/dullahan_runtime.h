@@ -157,7 +157,9 @@ class dullahan_runtime :
         bool mUseMockKeyChain;
         bool mAutoPlayWithoutGesture;
         bool mFakeUIForMediaStream;
+        bool mAcceleratedPaint = false;
         std::string mProxyHostPort;
+        std::string mOzonePlatform;     // Linux: forced --ozone-platform value (empty = auto-detect)
 
         IMPLEMENT_REFCOUNTING(dullahan_runtime);
 };

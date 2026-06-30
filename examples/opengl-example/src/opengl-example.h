@@ -88,6 +88,12 @@ class openglExample
         // zero-copy paint: CEF handed us a GPU shared-texture handle instead of a
         // CPU pixel buffer (only when accelerated paint is enabled + supported).
         void onAcceleratedPaint(int tab_index, void* native_handle, int format, int width, int height);
+        // Linux zero-copy paint: CEF handed us a dma-buf (per-plane fd/stride/offset
+        // + a DRM modifier) instead of a single handle. Raw arrays (not dullahan's
+        // plane struct) so this header stays independent of dullahan.h.
+        void onAcceleratedPaintDmabuf(int tab_index, int plane_count,
+                                      const int* fds, const unsigned int* strides, const unsigned long long* offsets,
+                                      int format, int width, int height, unsigned long long modifier);
         void onRequestExitCallback();
 
     private:

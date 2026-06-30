@@ -31,6 +31,8 @@
 #include "dullahan_impl.h"
 #include "dullahan_callback_manager.h"
 
+#include <iostream>
+
 dullahan_render_handler::dullahan_render_handler(dullahan_impl* parent) :
     mParent(parent)
 {
@@ -198,16 +200,35 @@ void dullahan_render_handler::OnAcceleratedPaint(CefRefPtr<CefBrowser> browser,
     mParent->getCallbackManager()->onAcceleratedPaint(
         reinterpret_cast<void*>(info.shared_texture_io_surface), format, width, height);
 #elif defined(__linux__)
-    // Linux: a dma-buf. CEF can export several planes; OSR BGRA/RGBA is single
-    // plane, which is all the import path below handles. The fd is valid only for
-    // this callback.
+    // Linux: a dma-buf. CEF may export several planes - notably a tiled/compressed
+    // (CCS) modifier adds an auxiliary plane alongside the colour plane. Forward
+    // EVERY plane; dropping the aux plane makes the consumer's GL import fail and
+    // the surface render grey. The fds are valid only for this callback, so the
+    // consumer dups what it needs before returning.
     if (info.plane_count > 0)
     {
-        const auto& plane = info.planes[0];
+        const int n = info.plane_count < kAcceleratedPaintMaxPlanes ? info.plane_count : kAcceleratedPaintMaxPlanes;
+        dullahan::dmabuf_plane planes[kAcceleratedPaintMaxPlanes];
+        for (int i = 0; i < n; ++i)
+        {
+            planes[i].fd = info.planes[i].fd;
+            planes[i].stride = static_cast<unsigned int>(info.planes[i].stride);
+            planes[i].offset = static_cast<unsigned long long>(info.planes[i].offset);
+        }
+
+        // One-time: log what CEF actually hands us. A plane_count > 1 or a
+        // non-trivial modifier is the usual cause of grey accelerated paint.
+        static bool logged = false;
+        if (!logged)
+        {
+            logged = true;
+            std::cerr << "dullahan accelerated dma-buf: planes=" << n
+                      << " modifier=0x" << std::hex << static_cast<unsigned long long>(info.modifier) << std::dec
+                      << " format=" << format << " size=" << width << "x" << height << std::endl;
+        }
+
         mParent->getCallbackManager()->onAcceleratedPaintDmabuf(
-            plane.fd, format, width, height,
-            static_cast<unsigned int>(plane.stride),
-            static_cast<unsigned long long>(plane.offset),
+            planes, n, format, width, height,
             static_cast<unsigned long long>(info.modifier));
     }
 #endif

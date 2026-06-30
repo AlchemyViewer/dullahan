@@ -478,6 +478,10 @@ bool dullahan_runtime::initCEF(dullahan::dullahan_settings& user_settings)
     // the proxy host:port to use
     mProxyHostPort = user_settings.proxy_host_port;
 
+    // Linux: the host app can pin the Ozone backend (X11 vs Wayland) here; see
+    // platformAddCommandLines. Empty leaves the env-based auto-detect in place.
+    mOzonePlatform = user_settings.ozone_platform;
+
     // list of language locale codes used to configure the Accept-Language HTTP header value
     if (user_settings.accept_language_list.length())
     {
@@ -497,6 +501,9 @@ bool dullahan_runtime::initCEF(dullahan::dullahan_settings& user_settings)
     // this flag forces Windows WaveOut/In audio API even if Core Audio is supported
     mForceWaveAudio = user_settings.force_wave_audio;
 #endif
+
+    // this flag is set to enable zero-copy gpu paint
+    mAcceleratedPaint = user_settings.accelerated_paint;
 
     // this flag if set, adds command line options to disable the GPU and GPU compositing.
     // Accelerated paint hands us a GPU shared texture, which requires GPU

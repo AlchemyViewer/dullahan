@@ -197,6 +197,12 @@ class dullahan
             // host name:port to use as a web proxy
             std::string proxy_host_port = std::string();
 
+            // Linux only: force the CEF Ozone platform backend ("wayland" or
+            // "x11") so it matches the host application's windowing backend
+            // instead of being guessed from the subprocess environment. Empty
+            // means auto-detect (the historical behaviour). Ignored elsewhere.
+            std::string ozone_platform = std::string();
+
             // background color displayed before first page loaded (RRGGBB)
             unsigned int background_color = 0xffffff;
 
@@ -437,13 +443,25 @@ class dullahan
         void setOnAcceleratedPaintCallback(std::function<void(void* native_handle,
                                             int format, int width, int height)> callback);
 
-        // Linux only: the accelerated frame arrives as a dma-buf (file descriptor
-        // + plane layout) instead of a single shared handle. fd is owned by the
-        // callback only for its duration - dup it (and pass it across a process
-        // boundary via SCM_RIGHTS) before returning. Single-plane formats only.
-        void setOnAcceleratedPaintDmabufCallback(std::function<void(int fd, int format,
-                                                 int width, int height, unsigned int stride,
-                                                 unsigned long long offset, unsigned long long modifier)> callback);
+        // A single dma-buf plane handed to the accelerated-paint callback below.
+        // fd is owned by dullahan and valid only for the callback's duration; the
+        // consumer must dup() each plane it needs before returning.
+        struct dmabuf_plane
+        {
+            int fd = -1;
+            unsigned int stride = 0;
+            unsigned long long offset = 0;
+        };
+
+        // Linux only: the accelerated frame arrives as a dma-buf (one or more
+        // planes + a DRM format modifier) instead of a single shared handle. A
+        // tiled/compressed (CCS) buffer carries an auxiliary plane alongside the
+        // colour plane; the consumer must import EVERY plane or the GL import
+        // fails and the surface renders grey. The plane fds are owned by the
+        // callback only for its duration - dup them before returning.
+        void setOnAcceleratedPaintDmabufCallback(std::function<void(const dmabuf_plane* planes,
+                                                 int plane_count, int format, int width, int height,
+                                                 unsigned long long modifier)> callback);
 
         // exit app requested
         void setOnRequestExitCallback(std::function<void()> callback);

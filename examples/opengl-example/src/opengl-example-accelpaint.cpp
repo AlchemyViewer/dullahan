@@ -415,6 +415,13 @@ void AcceleratedPaintInterop::unlockAfterDraw(GLuint gl_texture)
     }
 }
 
+// dma-buf is a Linux concept; Windows uses the D3D11 shared-handle import above.
+bool AcceleratedPaintInterop::importDmabuf(GLuint, int, const int*, const unsigned int*,
+                                           const unsigned long long*, int, int, int, unsigned long long)
+{
+    return false;
+}
+
 #elif defined(__APPLE__)
 
 #include <OpenGL/CGLCurrent.h>       // CGLGetCurrentContext
@@ -625,6 +632,267 @@ bool AcceleratedPaintInterop::import(GLuint gl_texture, void* shared_handle, int
 void AcceleratedPaintInterop::lockForDraw(GLuint) {}
 void AcceleratedPaintInterop::unlockAfterDraw(GLuint) {}
 
+// macOS uses the IOSurface shared-handle import above, not a dma-buf.
+bool AcceleratedPaintInterop::importDmabuf(GLuint, int, const int*, const unsigned int*,
+                                           const unsigned long long*, int, int, int, unsigned long long)
+{
+    return false;
+}
+
+#elif defined(__linux__)  // import CEF's dma-buf via EGL, GPU-blit into the GL texture
+
+#include <glad/glad.h>
+#include <SDL3/SDL.h>
+
+// Dynamically loaded EGL entry points - the example links GL (via glad) but not
+// EGL, so resolve these through SDL at init() and avoid an EGL link dependency.
+#define EGL_EGL_PROTOTYPES 0
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+
+#include <unordered_map>
+#include <sstream>
+#include <cstring>
+
+void accelPaintLog(const std::string& msg)
+{
+    std::cout << msg << std::endl;
+}
+
+static inline void apLog(const std::string& msg) { accelPaintLog(msg); }
+
+namespace
+{
+    // GLeglImageOES is just a void*; declare the GL_OES_EGL_image entry point
+    // locally so we don't have to pull in <GLES2/gl2ext.h> alongside glad.
+    typedef void (*PFN_glEGLImageTargetTexture2DOES)(GLenum target, void* image);
+    typedef const char* (*PFN_eglQueryString)(EGLDisplay dpy, EGLint name);
+
+    // DRM "no explicit modifier" sentinel (from drm_fourcc.h; declared here to
+    // avoid a hard dependency on it). Must NOT be handed to eglCreateImageKHR as
+    // an explicit modifier - doing so fails the import.
+    const unsigned long long DH_DRM_FORMAT_MOD_INVALID = 0x00ffffffffffffffULL;
+
+    inline unsigned int dh_fourcc(char a, char b, char c, char d)
+    {
+        return (unsigned)a | ((unsigned)b << 8) | ((unsigned)c << 16) | ((unsigned)d << 24);
+    }
+
+    struct LinuxInterop
+    {
+        EGLDisplay display = EGL_NO_DISPLAY;
+        bool has_import_modifiers = false;
+
+        PFNEGLCREATEIMAGEKHRPROC  eglCreateImageKHR = nullptr;
+        PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR = nullptr;
+        PFN_glEGLImageTargetTexture2DOES glEGLImageTargetTexture2DOES = nullptr;
+        PFN_eglQueryString eglQueryString = nullptr;
+
+        GLuint alias_tex = 0;   // GL_TEXTURE_2D the per-frame EGLImage binds to
+        GLuint read_fbo = 0;    // alias source attachment
+        GLuint draw_fbo = 0;    // consumer GL_TEXTURE_2D destination attachment
+        std::unordered_map<GLuint, std::pair<int,int>> dst_size;  // consumer tex -> alloc size
+        bool logged_import = false;
+    };
+}
+
+AcceleratedPaintInterop::AcceleratedPaintInterop() = default;
+
+AcceleratedPaintInterop::~AcceleratedPaintInterop()
+{
+    shutdown();
+}
+
+bool AcceleratedPaintInterop::init()
+{
+    EGLDisplay display = (EGLDisplay)SDL_EGL_GetCurrentDisplay();
+    if (!display)
+    {
+        apLog("[accelpaint] no current EGL display (X11/GLX?); run under Wayland or "
+              "set SDL_VIDEO_FORCE_EGL=1; using CPU paint");
+        return false;
+    }
+
+    LinuxInterop* l = new LinuxInterop();
+    l->display = display;
+
+    // egl* via the EGL loader, glEGLImageTargetTexture2DOES via the GL loader.
+    l->eglCreateImageKHR  = (PFNEGLCREATEIMAGEKHRPROC)  SDL_EGL_GetProcAddress("eglCreateImageKHR");
+    l->eglDestroyImageKHR = (PFNEGLDESTROYIMAGEKHRPROC) SDL_EGL_GetProcAddress("eglDestroyImageKHR");
+    l->eglQueryString     = (PFN_eglQueryString)        SDL_EGL_GetProcAddress("eglQueryString");
+    l->glEGLImageTargetTexture2DOES = (PFN_glEGLImageTargetTexture2DOES) SDL_GL_GetProcAddress("glEGLImageTargetTexture2DOES");
+
+    if (!l->eglCreateImageKHR || !l->eglDestroyImageKHR || !l->glEGLImageTargetTexture2DOES)
+    {
+        apLog("[accelpaint] EGL dma-buf import entry points missing; using CPU paint");
+        delete l;
+        return false;
+    }
+
+    // Modifier attributes are only legal when the driver advertises this
+    // extension; without it we must let the driver assume the default layout.
+    const char* exts = l->eglQueryString ? l->eglQueryString(l->display, EGL_EXTENSIONS) : nullptr;
+    l->has_import_modifiers = exts && strstr(exts, "EGL_EXT_image_dma_buf_import_modifiers") != nullptr;
+
+    glGenTextures(1, &l->alias_tex);
+    glGenFramebuffers(1, &l->read_fbo);
+    glGenFramebuffers(1, &l->draw_fbo);
+
+    mImpl = l;
+    mValid = true;
+    apLog(std::string("[accelpaint] zero-copy paint enabled (EGL dma-buf import; modifiers=")
+          + (l->has_import_modifiers ? "yes" : "no") + ")");
+    return true;
+}
+
+void AcceleratedPaintInterop::shutdown()
+{
+    if (!mImpl)
+    {
+        return;
+    }
+    LinuxInterop* l = static_cast<LinuxInterop*>(mImpl);
+    if (l->alias_tex) glDeleteTextures(1, &l->alias_tex);
+    if (l->read_fbo) glDeleteFramebuffers(1, &l->read_fbo);
+    if (l->draw_fbo) glDeleteFramebuffers(1, &l->draw_fbo);
+    delete l;
+    mImpl = nullptr;
+    mValid = false;
+}
+
+// dma-buf isn't a single shared handle, so the generic import() doesn't apply on
+// Linux - importDmabuf() below is the entry point. Keep a stub so the symbol
+// exists for any cross-platform caller.
+bool AcceleratedPaintInterop::import(GLuint, void*, int, int)
+{
+    return false;
+}
+
+bool AcceleratedPaintInterop::importDmabuf(GLuint gl_texture, int plane_count,
+                                           const int* fds, const unsigned int* strides, const unsigned long long* offsets,
+                                           int format, int width, int height, unsigned long long modifier)
+{
+    if (!mValid || !fds || plane_count <= 0 || width <= 0 || height <= 0)
+    {
+        return false;
+    }
+    int n = plane_count > 4 ? 4 : plane_count;
+    LinuxInterop* l = static_cast<LinuxInterop*>(mImpl);
+
+    // CEF formats: 0 = RGBA_8888, 1 = BGRA_8888 (cef_color_type_t) -> DRM fourcc.
+    unsigned int fourcc = (format == 0) ? dh_fourcc('A','B','2','4')    // DRM_FORMAT_ABGR8888 (RGBA)
+                                        : dh_fourcc('A','R','2','4');   // DRM_FORMAT_ARGB8888 (BGRA)
+
+    // Pass the DRM modifier per plane ONLY when it's a real value and the driver
+    // supports import-with-modifiers. Passing DRM_FORMAT_MOD_INVALID (or any
+    // modifier without the extension) fails eglCreateImageKHR -> grey surface.
+    const bool use_modifier = l->has_import_modifiers && modifier != DH_DRM_FORMAT_MOD_INVALID;
+
+    static const EGLint FD_ATTR[4]  = { EGL_DMA_BUF_PLANE0_FD_EXT, EGL_DMA_BUF_PLANE1_FD_EXT, EGL_DMA_BUF_PLANE2_FD_EXT, EGL_DMA_BUF_PLANE3_FD_EXT };
+    static const EGLint OFF_ATTR[4] = { EGL_DMA_BUF_PLANE0_OFFSET_EXT, EGL_DMA_BUF_PLANE1_OFFSET_EXT, EGL_DMA_BUF_PLANE2_OFFSET_EXT, EGL_DMA_BUF_PLANE3_OFFSET_EXT };
+    static const EGLint PIT_ATTR[4] = { EGL_DMA_BUF_PLANE0_PITCH_EXT, EGL_DMA_BUF_PLANE1_PITCH_EXT, EGL_DMA_BUF_PLANE2_PITCH_EXT, EGL_DMA_BUF_PLANE3_PITCH_EXT };
+    static const EGLint MLO_ATTR[4] = { EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT };
+    static const EGLint MHI_ATTR[4] = { EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT };
+
+    // In-process: CEF's fds are valid for this callback, so import them directly.
+    EGLint attrs[64];
+    int a = 0;
+    attrs[a++] = EGL_WIDTH;                attrs[a++] = width;
+    attrs[a++] = EGL_HEIGHT;               attrs[a++] = height;
+    attrs[a++] = EGL_LINUX_DRM_FOURCC_EXT; attrs[a++] = (EGLint)fourcc;
+    for (int i = 0; i < n; ++i)
+    {
+        attrs[a++] = FD_ATTR[i];  attrs[a++] = fds[i];
+        attrs[a++] = OFF_ATTR[i]; attrs[a++] = (EGLint)(offsets ? offsets[i] : 0);
+        attrs[a++] = PIT_ATTR[i]; attrs[a++] = (EGLint)(strides ? strides[i] : 0);
+        if (use_modifier)
+        {
+            attrs[a++] = MLO_ATTR[i]; attrs[a++] = (EGLint)(modifier & 0xFFFFFFFFu);
+            attrs[a++] = MHI_ATTR[i]; attrs[a++] = (EGLint)(modifier >> 32);
+        }
+    }
+    attrs[a++] = EGL_NONE;
+
+    EGLImageKHR image = l->eglCreateImageKHR(l->display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, (EGLClientBuffer)0, attrs);
+
+    if (!l->logged_import)
+    {
+        std::ostringstream os;
+        os << "[accelpaint] dma-buf import: " << (image != EGL_NO_IMAGE_KHR ? "ok" : "FAILED")
+           << " planes=" << n << " fourcc=0x" << std::hex << fourcc
+           << " modifier=0x" << modifier << std::dec
+           << " mod_ext=" << (l->has_import_modifiers ? 1 : 0)
+           << " used_mod=" << (use_modifier ? 1 : 0)
+           << " " << width << "x" << height;
+        apLog(os.str());
+        l->logged_import = true;
+    }
+
+    if (image == EGL_NO_IMAGE_KHR)
+    {
+        return false;
+    }
+
+    // Save the GL bindings we touch so the example's state is left undisturbed.
+    GLint prev_tex2d = 0, prev_read_fbo = 0, prev_draw_fbo = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex2d);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read_fbo);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_draw_fbo);
+
+    // Alias the dma-buf into our GL_TEXTURE_2D (no copy).
+    glBindTexture(GL_TEXTURE_2D, l->alias_tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    l->glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+
+    // Ensure the consumer's GL_TEXTURE_2D is allocated at the frame size.
+    glBindTexture(GL_TEXTURE_2D, gl_texture);
+    std::pair<int,int>& sz = l->dst_size[gl_texture];
+    if (sz.first != width || sz.second != height)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
+        sz.first = width;
+        sz.second = height;
+    }
+
+    // GPU blit alias -> consumer GL_TEXTURE_2D. No Y flip (the example does not set
+    // flip_pixels_y, so CEF's buffer matches the CPU path's orientation); if a
+    // device shows the page inverted, swap the dst Y coords (0,height,width,0).
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, l->read_fbo);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, l->alias_tex, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, l->draw_fbo);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gl_texture, 0);
+
+    bool ok = (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE &&
+               glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    if (ok)
+    {
+        glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
+
+    // Detach + restore the bindings, then drop the EGLImage. The blit already
+    // produced a standalone GL_TEXTURE_2D, so we don't keep the alias alive.
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prev_draw_fbo);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex2d);
+
+    l->eglDestroyImageKHR(l->display, image);
+
+    if (!ok)
+    {
+        apLog("[accelpaint] dma-buf blit framebuffer incomplete; using CPU paint this frame");
+        return false;
+    }
+    return true;
+}
+
+// The blit produced a self-contained GL_TEXTURE_2D, so there is no live alias to
+// lock around the draw (same as the macOS path).
+void AcceleratedPaintInterop::lockForDraw(GLuint) {}
+void AcceleratedPaintInterop::unlockAfterDraw(GLuint) {}
+
 #else  // other platforms - zero-copy interop not implemented yet
 
 void accelPaintLog(const std::string& msg)
@@ -637,6 +905,8 @@ AcceleratedPaintInterop::~AcceleratedPaintInterop() { shutdown(); }
 bool AcceleratedPaintInterop::init() { return false; }
 void AcceleratedPaintInterop::shutdown() {}
 bool AcceleratedPaintInterop::import(GLuint, void*, int, int) { return false; }
+bool AcceleratedPaintInterop::importDmabuf(GLuint, int, const int*, const unsigned int*,
+                                           const unsigned long long*, int, int, int, unsigned long long) { return false; }
 void AcceleratedPaintInterop::lockForDraw(GLuint) {}
 void AcceleratedPaintInterop::unlockAfterDraw(GLuint) {}
 

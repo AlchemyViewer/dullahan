@@ -285,6 +285,30 @@ if (BUILD_DULLAHAN_EXAMPLE)
             OpenGL::GL
             ${CMAKE_DL_LIBS}
         )
+
+        # Stage the CEF runtime next to the example so it runs standalone: CEF
+        # finds its resources (.pak / icudtl.dat / locales) and GL libs
+        # (libEGL/GLESv2/swiftshader) beside the executable. Mirrors the Windows
+        # staging above. The accelerated (dma-buf) paint path additionally needs an
+        # EGL context, so run under Wayland or with SDL_VIDEO_FORCE_EGL=1.
+        set(CEF_PKG_DIR "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+        add_custom_command(TARGET opengl-example POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CEF_PKG_DIR}/lib/libcef.so" "$<TARGET_FILE_DIR:opengl-example>"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_PKG_DIR}/share/cef-bin/Release" "$<TARGET_FILE_DIR:opengl-example>"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_PKG_DIR}/share/cef-bin/Resources" "$<TARGET_FILE_DIR:opengl-example>"
+        )
+
+        # The viewer build strips rpath (CMAKE_SKIP_RPATH), so generate a tiny
+        # wrapper that puts libcef.so + SDL3 on the library path and runs the
+        # example: `./run-opengl-example.sh` (pass DULLAHAN_* env vars as usual).
+        file(GENERATE
+            OUTPUT "$<TARGET_FILE_DIR:opengl-example>/run-opengl-example.sh"
+            CONTENT "#!/bin/sh
+here=\"$(cd \"$(dirname \"$0\")\" && pwd)\"
+export LD_LIBRARY_PATH=\"$here:${CEF_PKG_DIR}/lib:$LD_LIBRARY_PATH\"
+exec \"$here/opengl-example\" \"$@\"
+"
+            FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
     endif()
 
     add_dependencies(opengl-example dullahan)

@@ -180,18 +180,18 @@ void dullahan_callback_manager::onAcceleratedPaint(void* native_handle, int form
 }
 
 void dullahan_callback_manager::setOnAcceleratedPaintDmabufCallback(
-    std::function<void(int fd, int format, int width, int height,
-                       unsigned int stride, unsigned long long offset, unsigned long long modifier)> callback)
+    std::function<void(const dullahan::dmabuf_plane* planes, int plane_count,
+                       int format, int width, int height, unsigned long long modifier)> callback)
 {
     mOnAcceleratedPaintDmabufCallbackFunc = callback;
 }
 
-void dullahan_callback_manager::onAcceleratedPaintDmabuf(int fd, int format, int width, int height,
-                                                         unsigned int stride, unsigned long long offset, unsigned long long modifier)
+void dullahan_callback_manager::onAcceleratedPaintDmabuf(const dullahan::dmabuf_plane* planes, int plane_count,
+                                                         int format, int width, int height, unsigned long long modifier)
 {
     if (mOnAcceleratedPaintDmabufCallbackFunc)
     {
-        mOnAcceleratedPaintDmabufCallbackFunc(fd, format, width, height, stride, offset, modifier);
+        mOnAcceleratedPaintDmabufCallbackFunc(planes, plane_count, format, width, height, modifier);
     }
 }
 

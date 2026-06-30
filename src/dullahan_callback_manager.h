@@ -67,12 +67,12 @@ class dullahan_callback_manager
         void setOnAcceleratedPaintCallback(std::function<void(void* native_handle, int format, int width, int height)> callback);
         void onAcceleratedPaint(void* native_handle, int format, int width, int height);
 
-        // Linux delivers the accelerated frame as a dma-buf (an fd + layout)
-        // rather than a single handle, so it gets its own callback.
-        void setOnAcceleratedPaintDmabufCallback(std::function<void(int fd, int format, int width, int height,
-                                                 unsigned int stride, unsigned long long offset, unsigned long long modifier)> callback);
-        void onAcceleratedPaintDmabuf(int fd, int format, int width, int height,
-                                      unsigned int stride, unsigned long long offset, unsigned long long modifier);
+        // Linux delivers the accelerated frame as a dma-buf (one or more planes +
+        // a DRM modifier) rather than a single handle, so it gets its own callback.
+        void setOnAcceleratedPaintDmabufCallback(std::function<void(const dullahan::dmabuf_plane* planes, int plane_count,
+                                                 int format, int width, int height, unsigned long long modifier)> callback);
+        void onAcceleratedPaintDmabuf(const dullahan::dmabuf_plane* planes, int plane_count,
+                                      int format, int width, int height, unsigned long long modifier);
 
         void setOnStatusMessageCallback(std::function<void(const std::string message)> callback);
         void onStatusMessage(const std::string message);
@@ -119,7 +119,7 @@ class dullahan_callback_manager
         std::function<void(const std::string, const std::string)> mOnOpenPopupCallbackFunc;
         std::function<void(const unsigned char*, int, int, int, int)> mOnPageChangedCallbackFunc;
         std::function<void(void*, int, int, int)> mOnAcceleratedPaintCallbackFunc;
-        std::function<void(int, int, int, int, unsigned int, unsigned long long, unsigned long long)> mOnAcceleratedPaintDmabufCallbackFunc;
+        std::function<void(const dullahan::dmabuf_plane*, int, int, int, int, unsigned long long)> mOnAcceleratedPaintDmabufCallbackFunc;
         std::function<void(const std::string)> mOnStatusMessageCallbackFunc;
         std::function<void()> mOnRequestExitCallbackFunc;
         std::function<void(const std::string)> mOnTitleChangeCallbackFunc;

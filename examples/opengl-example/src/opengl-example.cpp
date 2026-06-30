@@ -665,10 +665,14 @@ bool openglExample::init()
     int win_px_w, win_px_h;
     SDL_GetWindowSizeInPixels(mWindow, &win_px_w, &win_px_h);
 
+    // Optional URL override (e.g. a data: URL of known colour) for nailing down
+    // the accelerated-paint path without depending on the network.
+    const char* url_override = std::getenv("DULLAHAN_EXAMPLE_URL");
+
     for (int i = 0; i < num_tabs; ++i)
     {
         Tab tab;
-        tab.url = tab_urls[i];
+        tab.url = url_override ? url_override : tab_urls[i];
 
         // Texture used to display this tab's browser output on the quad. Set the
         // sampling state once here (core profile has no default; the old code set
@@ -703,6 +707,15 @@ bool openglExample::init()
 #ifdef __APPLE__
         settings.use_mock_keychain = true;
 #endif
+#if defined(__linux__)
+        // Pin CEF's Ozone backend to our SDL windowing backend (x11/wayland) so
+        // the dma-buf it exports matches what this window can import - the same
+        // contract the viewer uses. Empty -> dullahan auto-detects from the env.
+        if (const char* drv = SDL_GetCurrentVideoDriver())
+        {
+            settings.ozone_platform = drv;
+        }
+#endif
 
         tab.browser = new dullahan();
         if (tab.browser->init(settings))
@@ -715,14 +728,32 @@ bool openglExample::init()
                 {
                     onPageChanged(tab_index, pixels, x, y, width, height);
                 });
-            // Zero-copy path: a GPU shared-texture handle arrives here instead.
+            // Zero-copy path: a GPU shared frame arrives here instead. Linux
+            // delivers a dma-buf (per-plane fds + modifier); every other platform
+            // a single shared-texture handle.
             if (mAcceleratedPaint)
             {
+#if defined(__linux__)
+                tab.browser->setOnAcceleratedPaintDmabufCallback(
+                    [this, tab_index](const dullahan::dmabuf_plane* planes, int plane_count, int format, int width, int height, unsigned long long modifier)
+                    {
+                        int n = plane_count > 4 ? 4 : plane_count;
+                        int fds[4]; unsigned int strides[4]; unsigned long long offsets[4];
+                        for (int i = 0; i < n; ++i)
+                        {
+                            fds[i] = planes[i].fd;
+                            strides[i] = planes[i].stride;
+                            offsets[i] = planes[i].offset;
+                        }
+                        onAcceleratedPaintDmabuf(tab_index, n, fds, strides, offsets, format, width, height, modifier);
+                    });
+#else
                 tab.browser->setOnAcceleratedPaintCallback(
                     [this, tab_index](void* native_handle, int format, int width, int height)
                     {
                         onAcceleratedPaint(tab_index, native_handle, format, width, height);
                     });
+#endif
             }
             tab.browser->setOnRequestExitCallback(std::bind(&openglExample::onRequestExitCallback, this));
 
@@ -998,6 +1029,47 @@ void openglExample::onAcceleratedPaint(int tab_index, void* native_handle, int f
     Tab& tab = mTabs[tab_index];
 
     if (! mAccelPaint.import(tab.texture, native_handle, width, height))
+    {
+        return;
+    }
+
+    tab.tex_width = width;
+    tab.tex_height = height;
+
+    if (tab_index == mActiveTab)
+    {
+        mTextureWidth = width;
+        mTextureHeight = height;
+    }
+}
+
+// Linux zero-copy paint: CEF handed us a dma-buf for this tab's frame. Import its
+// planes as an EGLImage and GPU-blit into the tab's GL texture (no CPU copy). The
+// fds are valid only for the duration of this callback.
+void openglExample::onAcceleratedPaintDmabuf(int tab_index, int plane_count,
+                                             const int* fds, const unsigned int* strides, const unsigned long long* offsets,
+                                             int format, int width, int height, unsigned long long modifier)
+{
+    if (tab_index < 0 || tab_index >= (int)mTabs.size())
+    {
+        return;
+    }
+
+    static bool logged_first = false;
+    if (! logged_first)
+    {
+        std::ostringstream os;
+        os << "[accelpaint] first accelerated dma-buf frame: tab=" << tab_index
+           << " planes=" << plane_count << " format=" << format
+           << " modifier=0x" << std::hex << modifier << std::dec
+           << " " << width << "x" << height;
+        accelPaintLog(os.str());
+        logged_first = true;
+    }
+
+    Tab& tab = mTabs[tab_index];
+
+    if (! mAccelPaint.importDmabuf(tab.texture, plane_count, fds, strides, offsets, format, width, height, modifier))
     {
         return;
     }
