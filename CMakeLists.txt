@@ -147,6 +147,10 @@ elseif(LINUX)
         dullahan_host
         ll::cef
     )
+
+    target_link_options(dullahan_host PRIVATE
+        "-Wl,-rpath,$ORIGIN/../../lib"
+    )
 endif()
 
 # Windows commands to copy CEF binaries and 'resources' folders to
