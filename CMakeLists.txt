@@ -148,11 +148,8 @@ elseif(LINUX)
         ll::cef
     )
 
-    # dullahan_host is staged to llplugin/ by the viewer; libcef.so is in
-    # the adjacent lib/ directory. Set rpath so the dynamic linker finds it
-    # when CEF spawns dullahan_host as a subprocess.
     target_link_options(dullahan_host PRIVATE
-        "LINKER:-rpath,$ORIGIN/../lib"
+        "-Wl,-rpath,$ORIGIN/../../lib"
     )
 endif()
 
