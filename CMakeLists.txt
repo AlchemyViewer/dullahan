@@ -158,17 +158,16 @@ endif()
 
 if(WINDOWS)
     # Copy plugin files to packaging directory
-    set(CEF_BIN_DIR "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/cef-bin")
     add_custom_command(
         TARGET dullahan_host POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_BIN_DIR}/Release" "$<TARGET_FILE_DIR:dullahan_host>"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_BINARY_DIR_RELEASE}" "$<TARGET_FILE_DIR:dullahan_host>"
     )
 
     set(CEF_RESOURCE_FILES
-        "${CEF_BIN_DIR}/Resources/chrome_100_percent.pak"
-        "${CEF_BIN_DIR}/Resources/chrome_200_percent.pak"
-        "${CEF_BIN_DIR}/Resources/resources.pak"
-        "${CEF_BIN_DIR}/Resources/icudtl.dat"
+        "${CEF_RESOURCE_DIR}/chrome_100_percent.pak"
+        "${CEF_RESOURCE_DIR}/chrome_200_percent.pak"
+        "${CEF_RESOURCE_DIR}/resources.pak"
+        "${CEF_RESOURCE_DIR}/icudtl.dat"
     )
     add_custom_command(
         TARGET dullahan_host POST_BUILD
@@ -178,7 +177,7 @@ if(WINDOWS)
 
     add_custom_command(
         TARGET dullahan_host POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_BIN_DIR}/Resources/locales" "$<TARGET_FILE_DIR:dullahan_host>/locales"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_RESOURCE_DIR}/locales" "$<TARGET_FILE_DIR:dullahan_host>/locales"
     )
 endif()
 
@@ -295,11 +294,10 @@ if (BUILD_DULLAHAN_EXAMPLE)
         # (libEGL/GLESv2/swiftshader) beside the executable. Mirrors the Windows
         # staging above. The accelerated (dma-buf) paint path additionally needs an
         # EGL context, so run under Wayland or with SDL_VIDEO_FORCE_EGL=1.
-        set(CEF_PKG_DIR "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
         add_custom_command(TARGET opengl-example POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CEF_PKG_DIR}/lib/libcef.so" "$<TARGET_FILE_DIR:opengl-example>"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_PKG_DIR}/share/cef-bin/Release" "$<TARGET_FILE_DIR:opengl-example>"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_PKG_DIR}/share/cef-bin/Resources" "$<TARGET_FILE_DIR:opengl-example>"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:unofficial::cef::libcef>" "$<TARGET_FILE_DIR:opengl-example>"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_BINARY_DIR_RELEASE}" "$<TARGET_FILE_DIR:opengl-example>"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CEF_RESOURCE_DIR}" "$<TARGET_FILE_DIR:opengl-example>"
         )
 
         # The viewer build strips rpath (CMAKE_SKIP_RPATH), so generate a tiny
@@ -309,7 +307,7 @@ if (BUILD_DULLAHAN_EXAMPLE)
             OUTPUT "$<TARGET_FILE_DIR:opengl-example>/run-opengl-example.sh"
             CONTENT "#!/bin/sh
 here=\"$(cd \"$(dirname \"$0\")\" && pwd)\"
-export LD_LIBRARY_PATH=\"$here:${CEF_PKG_DIR}/lib:$LD_LIBRARY_PATH\"
+export LD_LIBRARY_PATH=\"$here:$<TARGET_FILE_DIR:unofficial::cef::libcef>:$LD_LIBRARY_PATH\"
 exec \"$here/opengl-example\" \"$@\"
 "
             FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
@@ -327,7 +325,7 @@ exec \"$here/opengl-example\" \"$@\"
         # name makes it load opengl-example.dll and call our RunWinMain with the
         # Windows sandbox info.
         add_custom_command(TARGET opengl-example POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CEF_BIN_DIR}/Release/bootstrap.exe" "$<TARGET_FILE_DIR:opengl-example>/opengl-example.exe"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CEF_BINARY_DIR_RELEASE}/bootstrap.exe" "$<TARGET_FILE_DIR:opengl-example>/opengl-example.exe"
         )
     endif()
 endif()
