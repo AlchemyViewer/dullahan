@@ -342,6 +342,7 @@ void dullahan_runtime::OnBeforeCommandLineProcessing(const CefString& process_ty
         // Suppress the EULA/first-run dialog — dullahan is an embedded
         // browser, not a standalone Chrome instance.
         command_line->AppendSwitch("no-first-run");
+        command_line->AppendSwitch("no-default-browser-check");
 
         platformAddCommandLines(command_line);
     }
