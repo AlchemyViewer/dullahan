@@ -42,7 +42,7 @@ add_library(
     src/dullahan_render_handler.h
 )
 
-target_link_libraries(dullahan PUBLIC ll::cef)
+target_link_libraries(dullahan PRIVATE al::flags PUBLIC ll::cef)
 target_include_directories(dullahan PUBLIC src)
 
 ###############################################################################
@@ -84,6 +84,8 @@ if(WINDOWS)
 
     target_link_libraries(
         dullahan_host
+        PRIVATE
+        al::flags
         ll::cef
     )
 elseif(DARWIN)
@@ -125,7 +127,7 @@ elseif(DARWIN)
         # Create Helper executable target.
         add_executable(${_helper_target} MACOSX_BUNDLE src/host/dullahan_host.cpp)
 
-        target_link_libraries(${_helper_target} PRIVATE ll::cef)
+        target_link_libraries(${_helper_target} PRIVATE al::flags ll::cef)
         set_target_properties(${_helper_target} PROPERTIES
             XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.achemyviewer.dullahanhost${_plist_suffix}"
             MACOSX_BUNDLE_GUI_IDENTIFIER "org.achemyviewer.dullahanhost${_plist_suffix}"
@@ -145,6 +147,8 @@ elseif(LINUX)
 
     target_link_libraries(
         dullahan_host
+        PRIVATE
+        al::flags
         ll::cef
     )
 
@@ -243,6 +247,8 @@ if (BUILD_DULLAHAN_EXAMPLE)
         find_package(glad CONFIG REQUIRED)
         target_link_libraries (
             opengl-example
+            PRIVATE
+            al::flags
             dullahan
             opengl32
             ll::SDL3
@@ -259,6 +265,8 @@ if (BUILD_DULLAHAN_EXAMPLE)
         find_library (IOSURFACE_FRAMEWORK IOSurface)
         target_link_libraries (
             opengl-example
+            PRIVATE
+            al::flags
             dullahan
             ll::SDL3
             imgui::imgui
@@ -281,6 +289,8 @@ if (BUILD_DULLAHAN_EXAMPLE)
         find_package(glad CONFIG REQUIRED)
         target_link_libraries (
             opengl-example
+            PRIVATE
+            al::flags
             dullahan
             ll::SDL3
             imgui::imgui
