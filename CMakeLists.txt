@@ -187,7 +187,7 @@ endif()
 
 ###############################################################################
 # Examples
-if (BUILD_DULLAHAN_EXAMPLE)
+if (AL_BUILD_DULLAHAN_EXAMPLE)
     # Dear ImGui (with the SDL3 + OpenGL2 backends) is provided by vcpkg.
     find_package(imgui CONFIG REQUIRED)
 
