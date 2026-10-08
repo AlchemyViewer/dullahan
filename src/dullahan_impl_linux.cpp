@@ -22,6 +22,14 @@ void dullahan_runtime::platformAddCommandLines(CefRefPtr<CefCommandLine> command
         command_line->AppendSwitchWithValue("use-angle", "gl-egl");
     }
 
+    // Linux's mock keychain: without it Chromium keeps its cookie key in the
+    // Secret Service or KWallet, which can ask to unlock the keyring when the
+    // first page loads.
+    if (mUseMockKeyChain)
+    {
+        command_line->AppendSwitchWithValue("password-store", "basic");
+    }
+
     // If the host application told us which windowing backend it is using
     // (e.g. the viewer knows whether SDL chose Wayland or X11), honour that
     // directly instead of guessing from the environment of this subprocess.
