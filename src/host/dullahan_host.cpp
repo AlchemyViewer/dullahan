@@ -27,6 +27,12 @@
 #include "cef_app.h"
 
 #ifdef __linux__
+// Chromium's zygote gives each process it forks a new stack canary
+// (--change-stack-guard-on-fork), and a forked child returns through main.
+// A canary main checked would be the zygote's, not the child's, and abort
+// every child on its way out, so main has none; Chromium's own frames on
+// the fork path are built the same way.
+__attribute__((no_stack_protector))
 int main(int argc, char* argv[])
 {
     CefMainArgs main_args(argc, argv);
